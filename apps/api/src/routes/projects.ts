@@ -18,7 +18,7 @@ import { SUPPORTED_LOCALES } from "@ccj/types";
 
 // ── Validators ────────────────────────────────────────────────
 
-const localeSchema = z.enum(SUPPORTED_LOCALES as [string, ...string[]]);
+const localeSchema = z.enum([...SUPPORTED_LOCALES] as unknown as [string, ...string[]]);
 
 const createProjectSchema = z.object({
   title: z

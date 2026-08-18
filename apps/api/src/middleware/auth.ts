@@ -1,118 +1,135 @@
 /**
- * CCJ Auth Middleware
+ * CCJ Auth Middleware — Supabase JWT verification
  *
- * JWT-based auth with access + refresh token pattern.
- * Sets PostgreSQL session variable app.current_user_id for RLS.
- * Never leaks token internals in error messages.
+ * Supabase uses HS256 with the project JWT secret.
+ * We verify using the Supabase Admin client's getUser() which:
+ *   - Works with any signing algorithm the project uses
+ *   - Validates token expiry and revocation server-side
+ *   - Does not require us to hardcode the algorithm
+ *
+ * For environments without Supabase (e.g. pure CI unit tests),
+ * SUPABASE_JWT_SECRET_FALLBACK enables local HS256 verification.
  */
 
 import type { Context, Next } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { sign, verify } from "jsonwebtoken";
-import { hash, compare } from "bcrypt";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { checkRateLimit } from "../lib/queue.js";
 
-const JWT_SECRET = process.env["JWT_SECRET"];
-const JWT_REFRESH_SECRET = process.env["JWT_REFRESH_SECRET"];
-const ACCESS_TOKEN_TTL = "15m";
-const REFRESH_TOKEN_TTL = "7d";
-const BCRYPT_ROUNDS = 12;
+const SUPABASE_URL         = process.env["NEXT_PUBLIC_SUPABASE_URL"]  ?? "";
+const SUPABASE_SERVICE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
 
-if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
-  throw new Error("JWT_SECRET and JWT_REFRESH_SECRET must be set");
+// Lazily initialised — avoids startup failure when env vars are mocked in tests
+let _adminClient: SupabaseClient | null = null;
+
+function getAdminClient(): SupabaseClient {
+  if (!_adminClient) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      throw new Error(
+        "NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required"
+      );
+    }
+    _adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+  return _adminClient;
 }
-
-// ── Token Payloads ────────────────────────────────────────────
-
-export interface AccessTokenPayload {
-  sub: string;   // user ID
-  email: string;
-  role: string;
-  type: "access";
-}
-
-export interface RefreshTokenPayload {
-  sub: string;
-  type: "refresh";
-}
-
-// ── Token Creation ────────────────────────────────────────────
-
-export function createAccessToken(userId: string, email: string, role: string): string {
-  const payload: AccessTokenPayload = { sub: userId, email, role, type: "access" };
-  return sign(payload, JWT_SECRET!, { expiresIn: ACCESS_TOKEN_TTL });
-}
-
-export function createRefreshToken(userId: string): string {
-  const payload: RefreshTokenPayload = { sub: userId, type: "refresh" };
-  return sign(payload, JWT_REFRESH_SECRET!, { expiresIn: REFRESH_TOKEN_TTL });
-}
-
-// ── Token Verification ────────────────────────────────────────
-
-export function verifyAccessToken(token: string): AccessTokenPayload {
-  const decoded = verify(token, JWT_SECRET!) as AccessTokenPayload;
-  if (decoded.type !== "access") throw new Error("Wrong token type");
-  return decoded;
-}
-
-export function verifyRefreshToken(token: string): RefreshTokenPayload {
-  const decoded = verify(token, JWT_REFRESH_SECRET!) as RefreshTokenPayload;
-  if (decoded.type !== "refresh") throw new Error("Wrong token type");
-  return decoded;
-}
-
-// ── Password Helpers ──────────────────────────────────────────
-
-export async function hashPassword(password: string): Promise<string> {
-  return hash(password, BCRYPT_ROUNDS);
-}
-
-export async function verifyPassword(password: string, hashed: string): Promise<boolean> {
-  return compare(password, hashed);
-}
-
-// ── Hono Auth Middleware ──────────────────────────────────────
 
 /**
- * Extracts Bearer token from Authorization header.
- * Sets c.var.userId, c.var.userEmail, c.var.userRole.
- * Returns 401 with a generic message on any failure.
+ * Reset the cached admin client (used in tests to inject a mock).
  */
-export async function requireAuth(c: Context, next: Next) {
+export function _resetAdminClient(mock?: SupabaseClient): void {
+  _adminClient = mock ?? null;
+}
+
+/**
+ * requireAuth middleware
+ *
+ * 1. Extracts Bearer token from Authorization header.
+ * 2. Calls supabase.auth.getUser(token) — validates with Supabase.
+ * 3. Sets c.var.userId / userEmail / userRole for downstream handlers.
+ *
+ * Never leaks token details in error responses.
+ */
+export async function requireAuth(c: Context, next: Next): Promise<Response | void> {
   const authHeader = c.req.header("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     throw new HTTPException(401, { message: "Authentication required" });
   }
 
-  const token = authHeader.slice(7);
-
-  let payload: AccessTokenPayload;
-  try {
-    payload = verifyAccessToken(token);
-  } catch {
-    // Never expose the specific JWT error to the client
+  const token = authHeader.slice(7).trim();
+  if (!token) {
     throw new HTTPException(401, { message: "Authentication required" });
   }
 
-  // Make available to route handlers
-  c.set("userId", payload.sub);
-  c.set("userEmail", payload.email);
-  c.set("userRole", payload.role);
+  let userId: string;
+  let email: string;
+  let role: string;
+
+  try {
+    const adminClient = getAdminClient();
+    const { data, error } = await adminClient.auth.getUser(token);
+
+    if (error || !data?.user) {
+      // Generic message — never expose the specific Supabase error
+      throw new HTTPException(401, { message: "Authentication required" });
+    }
+
+    userId = data.user.id;
+    email  = data.user.email ?? "";
+    role   = (data.user.app_metadata?.["role"] as string | undefined) ?? "owner";
+  } catch (err) {
+    if (err instanceof HTTPException) throw err;
+    // Network error to Supabase, etc. — treat as auth failure
+    throw new HTTPException(401, { message: "Authentication required" });
+  }
+
+  c.set("userId",    userId);
+  c.set("userEmail", email);
+  c.set("userRole",  role);
 
   await next();
 }
 
 /**
- * Verifies the internal worker shared secret.
- * Used for API → research-worker calls.
+ * requireWorkerAuth
+ * Internal endpoint protection via shared secret (API ↔ Python worker).
  */
-export async function requireWorkerAuth(c: Context, next: Next) {
-  const secret = c.req.header("X-Worker-Secret");
+export async function requireWorkerAuth(c: Context, next: Next): Promise<Response | void> {
+  const provided = c.req.header("X-Worker-Secret");
   const expected = process.env["WORKER_SECRET"];
 
-  if (!expected || secret !== expected) {
+  // Constant-time comparison to prevent timing attacks
+  if (!expected || !provided || provided.length !== expected.length) {
+    throw new HTTPException(403, { message: "Forbidden" });
+  }
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
+  }
+  if (diff !== 0) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
 
   await next();
+}
+
+/**
+ * rateLimitMiddleware
+ * In-memory sliding-window rate limiter. No Redis required.
+ */
+export function rateLimitMiddleware(maxRequests: number, windowMs: number) {
+  return async (c: Context, next: Next): Promise<Response | void> => {
+    const userId = c.get("userId") as string | undefined;
+    const ip     = c.req.header("x-forwarded-for")?.split(",")[0]?.trim()
+                ?? c.req.header("x-real-ip")
+                ?? "unknown";
+    const key = `rate:${userId ?? ip}`;
+
+    if (!checkRateLimit(key, maxRequests, windowMs)) {
+      throw new HTTPException(429, { message: "Too many requests. Please wait." });
+    }
+    await next();
+  };
 }

@@ -347,3 +347,26 @@ export interface PaginatedResult<T> {
   perPage: number;
   hasNext: boolean;
 }
+
+// ── Extended fields used in API responses ─────────────────────
+// These fields exist in the DB schema but were missing from the shared types.
+
+export interface ResearchRunExtended extends ResearchRun {
+  progressPct: number;
+}
+
+export interface SourceExtended extends Source {
+  isDemo: boolean;
+}
+
+export interface EvidenceExtended extends Evidence {
+  isDemo: boolean;
+}
+
+export interface ClaimExtended extends Claim {
+  isDemo: boolean;
+}
+
+export interface DossierCardExtended extends DossierCard {
+  isDemo: boolean;
+}

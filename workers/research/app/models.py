@@ -5,7 +5,7 @@ All inputs/outputs validated at boundary.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -89,7 +89,7 @@ class SourceRecord(BaseModel):
     title: str
     author: str | None = None
     published_at: datetime | None = None
-    retrieved_at: datetime = Field(default_factory=lambda: datetime.utcnow())
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     language: str = "en"
     source_type: str = "webpage"
     credibility_tier: str = "unknown"
@@ -132,7 +132,7 @@ class EvidenceRecord(BaseModel):
     # MUST be exact quote — never paraphrased
     quote: str = Field(..., min_length=1, max_length=10_000)
     coordinates: dict[str, Any] | None = None
-    captured_at: datetime = Field(default_factory=lambda: datetime.utcnow())
+    captured_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     language: str = "en"
     extraction_warnings: list[str] = Field(default_factory=list)
