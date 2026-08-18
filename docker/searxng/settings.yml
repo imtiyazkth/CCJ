@@ -1,0 +1,50 @@
+# CCJ SearXNG Settings
+# Self-hosted meta-search for CCJ Research Worker
+
+use_default_settings: true
+
+server:
+  secret_key: "${SEARXNG_SECRET_KEY}"
+  bind_address: "0.0.0.0"
+  port: 8080
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - html
+    - json   # Required by CCJ research worker
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+    use_mobile_ui: false
+
+  - name: bing
+    engine: bing
+    shortcut: b
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: d
+
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: w
+    base_url: "https://en.wikipedia.org/"
+
+outgoing:
+  request_timeout: 10.0
+  max_request_timeout: 20.0
+  # User-agent passed to upstream engines
+  useragent_suffix: ""
+
+# Disable UI features not needed in API-only mode
+ui:
+  static_use_hash: true
+  default_locale: ""
+  query_in_title: false
+  infinite_scroll: false
+  center_alignment: false

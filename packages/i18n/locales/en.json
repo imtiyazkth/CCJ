@@ -1,0 +1,214 @@
+{
+  "_meta": { "locale": "en", "direction": "ltr", "version": "1.0.0" },
+
+  "app": {
+    "name": "CCJ",
+    "tagline": "Content Creation Journey",
+    "description": "Research-to-content operating system"
+  },
+
+  "nav": {
+    "dashboard": "Dashboard",
+    "projects": "Projects",
+    "newProject": "New Project",
+    "researchWorkspace": "Research Workspace",
+    "sources": "Sources",
+    "evidenceVault": "Evidence Vault",
+    "claims": "Claims",
+    "timeline": "Timeline",
+    "reactions": "Reactions & Social",
+    "legalResearch": "Legal Research",
+    "researchGaps": "Research Gaps",
+    "contentStudio": "Content Studio",
+    "export": "Export",
+    "settings": "Settings",
+    "auditHistory": "Audit History"
+  },
+
+  "auth": {
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "email": "Email address",
+    "password": "Password",
+    "signInButton": "Sign in",
+    "errors": {
+      "invalidCredentials": "Invalid email or password.",
+      "sessionExpired": "Your session has expired. Please sign in again."
+    }
+  },
+
+  "project": {
+    "title": "Title",
+    "description": "Description",
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "create": "Create Project",
+    "created": "Project created",
+    "updated": "Project updated",
+    "noProjects": "No projects yet. Create your first research project.",
+    "demo": {
+      "badge": "DEMO",
+      "notice": "This is a demo project. All sources and evidence are labeled [DEMO] and are illustrative placeholders only."
+    }
+  },
+
+  "research": {
+    "topic": "Research Topic",
+    "topicPlaceholder": "Enter your topic or idea…",
+    "depth": {
+      "label": "Research Depth",
+      "quick": "Quick",
+      "standard": "Standard",
+      "deep": "Deep"
+    },
+    "dateRange": {
+      "label": "Date Range",
+      "start": "From",
+      "end": "To"
+    },
+    "triggerButton": "Start Research",
+    "status": {
+      "pending": "Pending",
+      "planning": "Planning research…",
+      "searching": "Searching sources…",
+      "fetching": "Fetching content…",
+      "extracting": "Extracting evidence…",
+      "analysing": "Analysing claims…",
+      "complete": "Research complete",
+      "failed": "Research failed"
+    },
+    "progress": "{{pct}}% complete",
+    "version": "Version {{version}}"
+  },
+
+  "source": {
+    "title": "Title",
+    "domain": "Domain",
+    "type": {
+      "webpage": "Webpage",
+      "pdf": "PDF Document",
+      "video": "Video",
+      "news": "News Article",
+      "social": "Social Media",
+      "legal_document": "Legal Document",
+      "official_statement": "Official Statement",
+      "academic": "Academic Paper",
+      "user_upload": "User Upload"
+    },
+    "credibility": {
+      "primary": "Primary",
+      "verified": "Verified",
+      "credible": "Credible",
+      "reported": "Reported",
+      "unknown": "Unknown",
+      "disputed": "Disputed"
+    },
+    "retrievedAt": "Retrieved",
+    "publishedAt": "Published",
+    "viewSource": "View Source",
+    "noSources": "No sources found for this research run."
+  },
+
+  "evidence": {
+    "quote": "Quote / Excerpt",
+    "page": "Page {{n}}",
+    "section": "Section",
+    "confidence": "Confidence",
+    "warnings": "Extraction Warnings",
+    "viewInSource": "View in Source",
+    "noEvidence": "No evidence extracted yet."
+  },
+
+  "claim": {
+    "text": "Claim",
+    "type": {
+      "fact": "Fact",
+      "reported": "Reported",
+      "opinion": "Opinion",
+      "analysis": "Analysis",
+      "legal_interpretation": "Legal Interpretation",
+      "inference": "Inference",
+      "statistic": "Statistic"
+    },
+    "status": {
+      "verified": "Verified",
+      "strongly_correlated": "Strongly Correlated",
+      "reported": "Reported",
+      "disputed": "Disputed",
+      "unverified": "Unverified",
+      "opinion": "Opinion",
+      "inference": "Inference",
+      "outdated": "Outdated"
+    },
+    "confidence": "Confidence",
+    "supporting": "Supporting Evidence",
+    "contradicting": "Contradicting Evidence",
+    "reasoning": "Reasoning",
+    "missing": "What Is Missing",
+    "noClaims": "No claims identified yet.",
+    "verificationWarning": "Claim status can only be set to 'verified' with supporting evidence."
+  },
+
+  "dossier": {
+    "title": "Research Dossier",
+    "cardTypes": {
+      "summary": "Summary",
+      "timeline": "Timeline",
+      "contradiction": "Contradictions",
+      "gap": "Research Gaps",
+      "legal": "Legal Analysis",
+      "source_analysis": "Source Analysis",
+      "key_claim": "Key Claim"
+    },
+    "empty": "The dossier will be built once research is complete."
+  },
+
+  "locale": {
+    "changeLanguage": "Change Language",
+    "uiLocale": "Interface Language",
+    "outputLocale": "Output Language",
+    "translateResult": "Translate Result",
+    "translating": "Translating…",
+    "translated": "Translated to {{locale}}",
+    "translationNote": "This is a translation. The original {{locale}} text is preserved separately.",
+    "rtlNotice": "Right-to-left layout active."
+  },
+
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "notFound": "Not found.",
+    "unauthorized": "You are not authorised to access this resource.",
+    "forbidden": "Access denied.",
+    "rateLimited": "Too many requests. Please wait before trying again.",
+    "validation": "Please check the form for errors.",
+    "networkError": "Network error. Check your connection."
+  },
+
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "export": "Export",
+    "import": "Import",
+    "refresh": "Refresh",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "yes": "Yes",
+    "no": "No",
+    "unknown": "Unknown",
+    "demo": "Demo"
+  }
+}
