@@ -3,14 +3,14 @@
  * Timeline page — chronological evidence display
  */
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useAuth } from "../../../../../lib/auth-context";
 import { apiFetch } from "../../../../../lib/supabase";
 import { ProjectLayout } from "../../../../../components/layout/ProjectLayout";
 import { DemoBadge, EmptyState, ErrorBanner, Spinner } from "../../../../../components/ui";
 import type { Evidence, Project, Source } from "@ccj/types";
 
-interface PageProps { params: { locale: string; id: string } }
+interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 interface EvidenceWithSource extends Evidence {
   isDemo?: boolean;
@@ -18,7 +18,7 @@ interface EvidenceWithSource extends Evidence {
 
 export default function TimelinePage({ params }: PageProps) {
   const { token } = useAuth();
-  const { locale, id } = params;
+  const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [evidence, setEvidence] = useState<EvidenceWithSource[]>([]);

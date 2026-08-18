@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../../../lib/auth-context";
 import { apiFetch } from "../../../../lib/supabase";
 import { useTranslation } from "../../../../lib/i18n";
@@ -8,12 +8,12 @@ import { EmptyState, ErrorBanner, RunStatusBadge, Spinner, Card } from "../../..
 import type { Project, ResearchPlan } from "@ccj/types";
 import type { ResearchRunExtended } from "@ccj/types";
 
-interface PageProps { params: { locale: string; id: string } }
+interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 export default function ResearchPage({ params }: PageProps) {
   const { token } = useAuth();
   const { t } = useTranslation();
-  const { locale, id } = params;
+  const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [runs, setRuns] = useState<ResearchRunExtended[]>([]);
   const [topic, setTopic] = useState("");

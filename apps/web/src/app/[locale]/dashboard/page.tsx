@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../../lib/auth-context";
@@ -8,7 +8,8 @@ import { apiFetch } from "../../../lib/supabase";
 import { Spinner, EmptyState, ErrorBanner } from "../../../components/ui";
 import type { Project } from "@ccj/types";
 
-export default function DashboardPage({ params }: { params: { locale: string } }) {
+export default function DashboardPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = use(params);
   const { user, token, loading, signOut } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) router.replace(`/${params.locale}/auth/login`);
+    if (!loading && !user) router.replace(`/${locale}/auth/login`);
   }, [user, loading]);
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
             <h1 className="text-2xl font-bold text-gray-900">{t("nav.projects")}</h1>
             <p className="text-sm text-gray-500 mt-1">{t("app.description")}</p>
           </div>
-          <Link href={`/${params.locale}/projects/new`}
+          <Link href={`/${locale}/projects/new`}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
             + {t("project.create")}
           </Link>
@@ -67,7 +68,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
           <EmptyState icon="📂" title={t("project.noProjects")} body={t("app.description")} />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((p) => <ProjectCard key={p.id} project={p} locale={params.locale} t={t} />)}
+            {projects.map((p) => <ProjectCard key={p.id} project={p} locale={locale} t={t} />)}
           </div>
         )}
       </main>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -11,12 +11,13 @@ import type { Project } from "@ccj/types";
 
 const LOCALE_LABELS: Record<string, string> = { en: "English", hi: "हिंदी", ar: "العربية" };
 
-export default function NewProjectPage({ params }: { params: { locale: string } }) {
+export default function NewProjectPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = use(params);
   const { token } = useAuth();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [outputLocale, setOutputLocale] = useState(params.locale);
+  const [outputLocale, setOutputLocale] = useState(locale);
   const [sourceLanguage, setSourceLanguage] = useState("en");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,9 +35,9 @@ export default function NewProjectPage({ params }: { params: { locale: string } 
         title: title.trim(),
         description: description.trim() || undefined,
         locales: {
-          uiLocale: params.locale,
-          promptLocale: params.locale,
-          projectLocale: params.locale,
+          uiLocale: locale,
+          promptLocale: locale,
+          projectLocale: locale,
           outputLocale,
           sourceLanguage,
         },
@@ -49,14 +50,14 @@ export default function NewProjectPage({ params }: { params: { locale: string } 
       return;
     }
 
-    router.push(`/${params.locale}/projects/${data.id}`);
+    router.push(`/${locale}/projects/${data.id}`);
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white px-4 py-4">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <Link href={`/${params.locale}/dashboard`} className="text-sm text-gray-500 hover:text-gray-800">
+          <Link href={`/${locale}/dashboard`} className="text-sm text-gray-500 hover:text-gray-800">
             ← Dashboard
           </Link>
           <span className="text-gray-300">/</span>
@@ -143,7 +144,7 @@ export default function NewProjectPage({ params }: { params: { locale: string } 
 
           <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
             <Link
-              href={`/${params.locale}/dashboard`}
+              href={`/${locale}/dashboard`}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Cancel

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useAuth } from "../../../../../lib/auth-context";
 import { apiFetch } from "../../../../../lib/supabase";
 import { ProjectLayout } from "../../../../../components/layout/ProjectLayout";
 import { DemoBadge, EmptyState, ErrorBanner, Spinner } from "../../../../../components/ui";
 import type { DossierCard, Project } from "@ccj/types";
 
-interface PageProps { params: { locale: string; id: string } }
+interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 const CARD_TYPE_ICON: Record<string, string> = {
   summary: "📋", timeline: "🕐", contradiction: "⚡", gap: "⚠️",
@@ -26,7 +26,7 @@ const CARD_TYPE_COLOR: Record<string, string> = {
 
 export default function DossierPage({ params }: PageProps) {
   const { token } = useAuth();
-  const { locale, id } = params;
+  const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [cards, setCards] = useState<DossierCard[]>([]);
   const [loading, setLoading] = useState(true);

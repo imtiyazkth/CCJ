@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useAuth } from "../../../../../lib/auth-context";
 import { apiFetch } from "../../../../../lib/supabase";
 import { ProjectLayout } from "../../../../../components/layout/ProjectLayout";
 import { ClaimStatusBadge, DemoBadge, EmptyState, ErrorBanner, Spinner } from "../../../../../components/ui";
 import type { Claim, Project } from "@ccj/types";
 
-interface PageProps { params: { locale: string; id: string } }
+interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 const CLAIM_TYPE_LABEL: Record<string, string> = {
   fact: "Fact", reported: "Reported", opinion: "Opinion",
@@ -16,7 +16,7 @@ const CLAIM_TYPE_LABEL: Record<string, string> = {
 
 export default function ClaimsPage({ params }: PageProps) {
   const { token } = useAuth();
-  const { locale, id } = params;
+  const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);

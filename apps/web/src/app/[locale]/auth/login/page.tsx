@@ -5,7 +5,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useTranslation } from "@/lib/i18n";
 import { Spinner } from "@/components/ui";
 
-export default function LoginPage({ params }: { params: { locale: string } }) {
+export default async function LoginPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
   const { signIn, user, loading } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
@@ -15,8 +16,8 @@ export default function LoginPage({ params }: { params: { locale: string } }) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace(`/${params.locale}/dashboard`);
-  }, [user, loading, router, params.locale]);
+    if (!loading && user) router.replace(`/${locale}/dashboard`);
+  }, [user, loading, router, locale]);
 
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center">
@@ -30,7 +31,7 @@ export default function LoginPage({ params }: { params: { locale: string } }) {
     setSubmitting(true);
     const err = await signIn(email, password);
     if (err) { setError(t("auth.errors.invalidCredentials")); setSubmitting(false); }
-    else router.push(`/${params.locale}/dashboard`);
+    else router.push(`/${locale}/dashboard`);
   }
 
   return (

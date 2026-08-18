@@ -2,14 +2,14 @@
 /**
  * Sources page — /projects/[id]/sources
  */
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useAuth } from "../../../../../lib/auth-context";
 import { apiFetch } from "../../../../../lib/supabase";
 import { ProjectLayout } from "../../../../../components/layout/ProjectLayout";
 import { CredibilityBadge, DemoBadge, EmptyState, ErrorBanner, Spinner } from "../../../../../components/ui";
 import type { Project, SourceExtended as Source } from "@ccj/types";
 
-interface PageProps { params: { locale: string; id: string } }
+interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 const SOURCE_TYPE_ICON: Record<string, string> = {
   webpage: "🌐", pdf: "📄", video: "🎥", news: "📰", social: "💬",
@@ -18,7 +18,7 @@ const SOURCE_TYPE_ICON: Record<string, string> = {
 
 export default function SourcesPage({ params }: PageProps) {
   const { token } = useAuth();
-  const { locale, id } = params;
+  const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
