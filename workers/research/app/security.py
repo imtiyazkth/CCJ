@@ -85,7 +85,7 @@ def validate_fetch_url(raw_url: str) -> str:
 
     for _family, _type, _proto, _canonname, sockaddr in results:
         ip_addr = sockaddr[0]
-        if is_private_ip(ip_addr):
+        if is_private_ip(ip_addr):  # type: ignore
             raise SSRFError(
                 f"Hostname {hostname!r} resolves to private address {ip_addr!r}"
             )

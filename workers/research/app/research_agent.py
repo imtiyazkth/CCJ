@@ -184,14 +184,14 @@ class ResearchAgent:
             return None
 
         source_type = self._guess_source_type(page.canonical_url)
-        credibility = estimate_credibility(page.domain if page.domain else result.domain)
+        credibility = estimate_credibility(page.domain if page.domain else result.domain)  # type: ignore
 
         return SourceRecord(
             id=str(uuid4()),
             research_run_id=run_id,
             url=result.url,
             canonical_url=page.canonical_url,
-            domain=page.domain if page.domain else result.domain,
+            domain=page.domain if page.domain else result.domain,  # type: ignore
             title=page.title or result.title,
             author=page.author,
             language=page.language or result.language or "en",
