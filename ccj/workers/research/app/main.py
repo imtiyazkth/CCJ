@@ -1,13 +1,27 @@
 """CCJ Research Worker — FastAPI entry point"""
 from __future__ import annotations
-import asyncio, hashlib, json, logging, os
+
+import json
+import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 
-from .models import ResearchRunRequest, SourceRecord, EvidenceRecord, ClaimRecord, DossierCardRecord
-from .providers import DemoSearchProvider, HttpDocumentProvider, DemoTranslationProvider, DemoAIProvider
+from .models import (
+    ClaimRecord,
+    DossierCardRecord,
+    EvidenceRecord,
+    ResearchRunRequest,
+    SourceRecord,
+)
+from .providers import (
+    DemoAIProvider,
+    DemoSearchProvider,
+    DemoTranslationProvider,
+    HttpDocumentProvider,
+)
 from .research_agent import ResearchAgent
 from .security import SSRFError
 
@@ -103,7 +117,7 @@ async def execute_research_run(req: ResearchRunRequest) -> None:
         logger.info("Run %s complete: %d sources, %d evidence, %d claims",
                     req.run_id, len(sources), len(evidence), len(claims))
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error("Run %s failed: %s", req.run_id, e, exc_info=True)  # noqa: G201
         await _update_status(req.run_id, "failed", error=str(e))
 

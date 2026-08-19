@@ -8,9 +8,8 @@ Adding a new provider = new class, zero business-logic edits.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
-
 
 # ── Search Provider ───────────────────────────────────────────
 
@@ -147,9 +146,8 @@ import asyncio
 import hashlib
 import json
 import re
-from urllib.parse import urlparse
 
-from .security import validate_fetch_url, SSRFError, resolve_redirect
+from .security import SSRFError, resolve_redirect, validate_fetch_url
 
 MAX_REDIRECTS = 5
 FETCH_TIMEOUT  = 20.0

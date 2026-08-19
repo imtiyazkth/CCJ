@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urljoin, urlparse
+
 
 class SSRFError(Exception):
     """Raised when a URL is blocked due to SSRF risk."""
@@ -59,7 +60,7 @@ def validate_fetch_url(raw_url: str) -> str:
     """
     try:
         parsed = urlparse(raw_url)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise SSRFError(f"Invalid URL: {e}") from e
 
     if parsed.scheme not in ALLOWED_SCHEMES:
@@ -97,7 +98,7 @@ def resolve_redirect(base_url: str, location: str) -> str:
     Resolve a Location header value against the base URL.
     Handles relative redirects (/path, ../path) safely.
     """
-    if location.startswith("http://") or location.startswith("https://"):
+    if location.startswith(("http://", "https://")):
         return location
     return urljoin(base_url, location)
 

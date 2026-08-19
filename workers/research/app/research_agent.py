@@ -10,19 +10,28 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from datetime import datetime, timezone
 from uuid import uuid4
 
 from .models import (
-    ClaimRecord, DossierCardRecord, EvidenceRecord,
-    PlanningResult, SearchQueryModel, SearchResultModel, SourceRecord,
+    ClaimRecord,
+    DossierCardRecord,
+    EvidenceRecord,
+    PlanningResult,
+    SearchQueryModel,
+    SearchResultModel,
+    SourceRecord,
 )
 from .providers import (
-    IAIProvider, IDocumentProvider, ISearchProvider, ITranslationProvider,
-    ChatMessage, DemoSearchProvider, HttpDocumentProvider,
-    DemoTranslationProvider, DemoAIProvider,
+    ChatMessage,
+    DemoAIProvider,
+    DemoSearchProvider,
+    DemoTranslationProvider,
+    HttpDocumentProvider,
+    IAIProvider,
+    IDocumentProvider,
+    ISearchProvider,
+    ITranslationProvider,
 )
-from .security import validate_fetch_url, SSRFError
 
 logger = logging.getLogger("ccj.agent")
 
