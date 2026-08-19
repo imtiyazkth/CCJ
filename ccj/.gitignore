@@ -1,0 +1,56 @@
+# Environment — NEVER commit
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# Turbo
+.turbo/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
+
+# Docker volumes (local)
+docker/volumes/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Drizzle generated (check-in migrations, not snapshots)
+drizzle/meta/
+
+# Uploads (never commit user data)
+uploads/
+artifacts/

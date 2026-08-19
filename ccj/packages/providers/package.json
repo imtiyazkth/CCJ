@@ -1,0 +1,24 @@
+{
+  "name": "@ccj/providers",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" },
+    "./demo": { "import": "./dist/demo/index.js", "types": "./dist/demo/index.d.ts" },
+    "./supabase": { "import": "./dist/supabase/storage.js", "types": "./dist/supabase/storage.d.ts" }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

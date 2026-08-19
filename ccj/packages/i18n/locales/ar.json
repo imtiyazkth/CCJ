@@ -1,0 +1,214 @@
+{
+  "_meta": { "locale": "ar", "direction": "rtl", "version": "1.0.0" },
+
+  "app": {
+    "name": "CCJ",
+    "tagline": "رحلة إنشاء المحتوى",
+    "description": "نظام تشغيل من البحث إلى المحتوى"
+  },
+
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "projects": "المشاريع",
+    "newProject": "مشروع جديد",
+    "researchWorkspace": "مساحة البحث",
+    "sources": "المصادر",
+    "evidenceVault": "خزينة الأدلة",
+    "claims": "الادعاءات",
+    "timeline": "الجدول الزمني",
+    "reactions": "ردود الفعل والشبكات",
+    "legalResearch": "البحث القانوني",
+    "researchGaps": "ثغرات البحث",
+    "contentStudio": "استوديو المحتوى",
+    "export": "تصدير",
+    "settings": "الإعدادات",
+    "auditHistory": "سجل التدقيق"
+  },
+
+  "auth": {
+    "signIn": "تسجيل الدخول",
+    "signOut": "تسجيل الخروج",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "signInButton": "دخول",
+    "errors": {
+      "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+      "sessionExpired": "انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى."
+    }
+  },
+
+  "project": {
+    "title": "العنوان",
+    "description": "الوصف",
+    "status": {
+      "draft": "مسودة",
+      "active": "نشط",
+      "archived": "مؤرشف"
+    },
+    "create": "إنشاء مشروع",
+    "created": "تم إنشاء المشروع",
+    "updated": "تم تحديث المشروع",
+    "noProjects": "لا توجد مشاريع بعد. أنشئ مشروع بحثي أول.",
+    "demo": {
+      "badge": "تجريبي",
+      "notice": "هذا مشروع تجريبي. جميع المصادر والأدلة مُصنَّفة [تجريبي] وهي بيانات توضيحية فقط."
+    }
+  },
+
+  "research": {
+    "topic": "موضوع البحث",
+    "topicPlaceholder": "أدخل موضوعك أو فكرتك…",
+    "depth": {
+      "label": "عمق البحث",
+      "quick": "سريع",
+      "standard": "معياري",
+      "deep": "عميق"
+    },
+    "dateRange": {
+      "label": "النطاق الزمني",
+      "start": "من",
+      "end": "إلى"
+    },
+    "triggerButton": "بدء البحث",
+    "status": {
+      "pending": "في الانتظار",
+      "planning": "جارٍ التخطيط…",
+      "searching": "جارٍ البحث…",
+      "fetching": "جارٍ جلب المحتوى…",
+      "extracting": "جارٍ استخراج الأدلة…",
+      "analysing": "جارٍ تحليل الادعاءات…",
+      "complete": "اكتمل البحث",
+      "failed": "فشل البحث"
+    },
+    "progress": "{{pct}}٪ مكتمل",
+    "version": "الإصدار {{version}}"
+  },
+
+  "source": {
+    "title": "العنوان",
+    "domain": "النطاق",
+    "type": {
+      "webpage": "صفحة ويب",
+      "pdf": "مستند PDF",
+      "video": "فيديو",
+      "news": "مقال إخباري",
+      "social": "وسائل التواصل الاجتماعي",
+      "legal_document": "وثيقة قانونية",
+      "official_statement": "بيان رسمي",
+      "academic": "ورقة أكاديمية",
+      "user_upload": "رفع المستخدم"
+    },
+    "credibility": {
+      "primary": "أولي",
+      "verified": "موثّق",
+      "credible": "موثوق",
+      "reported": "مُبلَّغ",
+      "unknown": "غير معروف",
+      "disputed": "متنازع عليه"
+    },
+    "retrievedAt": "تم الاسترداد",
+    "publishedAt": "نُشر",
+    "viewSource": "عرض المصدر",
+    "noSources": "لم يُعثر على مصادر لهذه الجلسة."
+  },
+
+  "evidence": {
+    "quote": "اقتباس / مقطع",
+    "page": "صفحة {{n}}",
+    "section": "قسم",
+    "confidence": "الثقة",
+    "warnings": "تحذيرات الاستخراج",
+    "viewInSource": "عرض في المصدر",
+    "noEvidence": "لم يُستخرج أي دليل بعد."
+  },
+
+  "claim": {
+    "text": "الادعاء",
+    "type": {
+      "fact": "حقيقة",
+      "reported": "مُبلَّغ",
+      "opinion": "رأي",
+      "analysis": "تحليل",
+      "legal_interpretation": "تفسير قانوني",
+      "inference": "استنتاج",
+      "statistic": "إحصاء"
+    },
+    "status": {
+      "verified": "موثّق",
+      "strongly_correlated": "مترابط بشدة",
+      "reported": "مُبلَّغ",
+      "disputed": "متنازع عليه",
+      "unverified": "غير موثّق",
+      "opinion": "رأي",
+      "inference": "استنتاج",
+      "outdated": "قديم"
+    },
+    "confidence": "الثقة",
+    "supporting": "الأدلة الداعمة",
+    "contradicting": "الأدلة المتعارضة",
+    "reasoning": "الاستدلال",
+    "missing": "ما الناقص",
+    "noClaims": "لم يُحدَّد أي ادعاء بعد.",
+    "verificationWarning": "لا يمكن تعيين حالة الادعاء إلى 'موثّق' إلا بوجود دليل داعم."
+  },
+
+  "dossier": {
+    "title": "ملف البحث",
+    "cardTypes": {
+      "summary": "ملخص",
+      "timeline": "جدول زمني",
+      "contradiction": "تناقضات",
+      "gap": "ثغرات البحث",
+      "legal": "التحليل القانوني",
+      "source_analysis": "تحليل المصادر",
+      "key_claim": "ادعاء رئيسي"
+    },
+    "empty": "سيُبنى الملف بعد اكتمال البحث."
+  },
+
+  "locale": {
+    "changeLanguage": "تغيير اللغة",
+    "uiLocale": "لغة الواجهة",
+    "outputLocale": "لغة الإخراج",
+    "translateResult": "ترجمة النتيجة",
+    "translating": "جارٍ الترجمة…",
+    "translated": "مترجم إلى {{locale}}",
+    "translationNote": "هذه ترجمة. النص الأصلي بـ{{locale}} محفوظ بشكل منفصل.",
+    "rtlNotice": "تخطيط من اليمين إلى اليسار نشط."
+  },
+
+  "errors": {
+    "generic": "حدث خطأ ما. يرجى المحاولة مجدداً.",
+    "notFound": "غير موجود.",
+    "unauthorized": "غير مصرح لك بالوصول إلى هذا المورد.",
+    "forbidden": "تم رفض الوصول.",
+    "rateLimited": "طلبات كثيرة جداً. يرجى الانتظار.",
+    "validation": "يرجى التحقق من الأخطاء في النموذج.",
+    "networkError": "خطأ في الشبكة. تحقق من اتصالك."
+  },
+
+  "common": {
+    "loading": "جارٍ التحميل…",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "view": "عرض",
+    "close": "إغلاق",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "search": "بحث",
+    "filter": "تصفية",
+    "sort": "ترتيب",
+    "export": "تصدير",
+    "import": "استيراد",
+    "refresh": "تحديث",
+    "copy": "نسخ",
+    "copied": "تم النسخ!",
+    "yes": "نعم",
+    "no": "لا",
+    "unknown": "غير معروف",
+    "demo": "تجريبي"
+  }
+}
