@@ -157,7 +157,7 @@ class ResearchAgent:
                             domain=item.domain, published_at=item.published_at,
                             language=item.language, score=item.score,
                         ))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.warning("Search failed for %r: %s", q.query, e)
 
         logger.info("Search: %d unique results from %d queries", len(results), len(queries))
@@ -220,7 +220,7 @@ class ResearchAgent:
                     ],
                 )
                 items.append(ev)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.debug("Evidence validation failed: %s", e)
 
         return items
@@ -254,7 +254,7 @@ class ResearchAgent:
                     what_is_missing="Independent corroboration. Primary source confirmation.",
                 )
                 claims.append(claim)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.debug("Claim failed: %s", e)
         return claims
 

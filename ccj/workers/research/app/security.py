@@ -59,7 +59,7 @@ def validate_fetch_url(raw_url: str) -> str:
     """
     try:
         parsed = urlparse(raw_url)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise SSRFError(f"Invalid URL: {e}") from e
 
     if parsed.scheme not in ALLOWED_SCHEMES:

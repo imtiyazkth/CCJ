@@ -77,7 +77,7 @@ async def execute_research_run(req: ResearchRunRequest) -> None:
                     sources.append(src)
             except SSRFError as e:
                 logger.warning("SSRF blocked: %s", e)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.warning("Fetch failed %s: %s", r.url, e)
             await _update_status(req.run_id, "fetching", 35 + int(i/max(len(results[:20]),1)*25))
 
@@ -103,8 +103,8 @@ async def execute_research_run(req: ResearchRunRequest) -> None:
         logger.info("Run %s complete: %d sources, %d evidence, %d claims",
                     req.run_id, len(sources), len(evidence), len(claims))
 
-    except Exception as e:
-        logger.error("Run %s failed: %s", req.run_id, e, exc_info=True)
+    except Exception as e:  # noqa: BLE001
+        logger.error("Run %s failed: %s", req.run_id, e, exc_info=True)  # noqa: G201
         await _update_status(req.run_id, "failed", error=str(e))
 
 # ── DB helpers ────────────────────────────────────────────────
