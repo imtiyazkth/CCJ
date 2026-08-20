@@ -2,19 +2,18 @@
 CCJ Research Worker — Regression Tests
 Covers: SSRF, models, claim status, provider injection, redirect validation.
 """
+import pytest
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-from app.models import ClaimRecord, EvidenceRecord, ResearchRunRequest, SourceRecord
+from app.security import validate_fetch_url, SSRFError, resolve_redirect, is_private_ip
+from app.models import ClaimRecord, EvidenceRecord, SourceRecord, ResearchRunRequest
 from app.providers import (
-    ChatMessage,
-    DemoAIProvider,
-    DemoSearchProvider,
-    DemoTranslationProvider,
-    HttpDocumentProvider,
+    DemoSearchProvider, DemoAIProvider, DemoTranslationProvider,
+    HttpDocumentProvider, ChatMessage,
 )
 from app.research_agent import ResearchAgent
-from app.security import SSRFError, is_private_ip, resolve_redirect, validate_fetch_url
+
 
 # ══════════════════════════════════════════════════════════════
 # SSRF — initial URL validation
@@ -141,9 +140,8 @@ class TestRedirectHopValidation:
         Scenario: public URL → redirect to 169.254.169.254 (AWS metadata)
         The fetch must fail even though the initial URL was valid.
         """
-        from unittest.mock import AsyncMock, patch
-
         import httpx
+        from unittest.mock import patch, AsyncMock
 
         provider = HttpDocumentProvider()
 
@@ -160,9 +158,8 @@ class TestRedirectHopValidation:
 
     @pytest.mark.asyncio
     async def test_redirect_to_localhost_blocked(self):
-        from unittest.mock import AsyncMock, patch
-
         import httpx
+        from unittest.mock import patch, AsyncMock
 
         provider = HttpDocumentProvider()
         mock_redirect = MagicMock()
@@ -176,9 +173,8 @@ class TestRedirectHopValidation:
 
     @pytest.mark.asyncio
     async def test_too_many_redirects_returns_none(self):
-        from unittest.mock import AsyncMock, patch
-
         import httpx
+        from unittest.mock import patch, AsyncMock
 
         provider = HttpDocumentProvider()
         # Always returns a redirect to a valid public URL
@@ -339,7 +335,7 @@ class TestClaimStatusPolicy:
         assert c.status == "unverified"
 
     def test_confidence_out_of_range_rejected(self):
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             ClaimRecord(project_id="p1", claim_text="Test.", claim_type="fact",
                         confidence=1.5)
 
@@ -360,7 +356,7 @@ class TestEvidenceModel:
                            quote="According to BCI, students were warned about conduct.")
 
     def test_confidence_must_be_0_to_1(self):
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             EvidenceRecord(source_id="s1", quote="Valid quote from document.", confidence=1.5)
 
     def test_zero_confidence_accepted(self):
@@ -406,11 +402,11 @@ class TestResearchRunRequest:
         assert r.topic == "BCI vs NALSAR 2026"
 
     def test_short_topic_rejected(self):
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             ResearchRunRequest(run_id="r1", project_id="p1", topic="AB")
 
     def test_invalid_depth_rejected(self):
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             ResearchRunRequest(run_id="r1", project_id="p1",
                                topic="Valid topic text here", depth="extreme")
 

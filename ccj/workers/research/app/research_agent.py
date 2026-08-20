@@ -10,28 +10,19 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from .models import (
-    ClaimRecord,
-    DossierCardRecord,
-    EvidenceRecord,
-    PlanningResult,
-    SearchQueryModel,
-    SearchResultModel,
-    SourceRecord,
+    ClaimRecord, DossierCardRecord, EvidenceRecord,
+    PlanningResult, SearchQueryModel, SearchResultModel, SourceRecord,
 )
 from .providers import (
-    ChatMessage,
-    DemoAIProvider,
-    DemoSearchProvider,
-    DemoTranslationProvider,
-    HttpDocumentProvider,
-    IAIProvider,
-    IDocumentProvider,
-    ISearchProvider,
-    ITranslationProvider,
+    IAIProvider, IDocumentProvider, ISearchProvider, ITranslationProvider,
+    ChatMessage, DemoSearchProvider, HttpDocumentProvider,
+    DemoTranslationProvider, DemoAIProvider,
 )
+from .security import validate_fetch_url, SSRFError
 
 logger = logging.getLogger("ccj.agent")
 
@@ -166,7 +157,7 @@ class ResearchAgent:
                             domain=item.domain, published_at=item.published_at,
                             language=item.language, score=item.score,
                         ))
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.warning("Search failed for %r: %s", q.query, e)
 
         logger.info("Search: %d unique results from %d queries", len(results), len(queries))
@@ -184,14 +175,14 @@ class ResearchAgent:
             return None
 
         source_type = self._guess_source_type(page.canonical_url)
-        credibility = estimate_credibility(page.domain if page.domain else result.domain)  # type: ignore
+        credibility = estimate_credibility(page.domain if page.domain else result.domain)
 
         return SourceRecord(
             id=str(uuid4()),
             research_run_id=run_id,
             url=result.url,
             canonical_url=page.canonical_url,
-            domain=page.domain if page.domain else result.domain,  # type: ignore
+            domain=page.domain if page.domain else result.domain,
             title=page.title or result.title,
             author=page.author,
             language=page.language or result.language or "en",
@@ -229,7 +220,7 @@ class ResearchAgent:
                     ],
                 )
                 items.append(ev)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.debug("Evidence validation failed: %s", e)
 
         return items
@@ -263,7 +254,7 @@ class ResearchAgent:
                     what_is_missing="Independent corroboration. Primary source confirmation.",
                 )
                 claims.append(claim)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.debug("Claim failed: %s", e)
         return claims
 

@@ -1,27 +1,13 @@
 """CCJ Research Worker — FastAPI entry point"""
 from __future__ import annotations
-
-import json
-import logging
-import os
+import asyncio, hashlib, json, logging, os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 
-from .models import (
-    ClaimRecord,
-    DossierCardRecord,
-    EvidenceRecord,
-    ResearchRunRequest,
-    SourceRecord,
-)
-from .providers import (
-    DemoAIProvider,
-    DemoSearchProvider,
-    DemoTranslationProvider,
-    HttpDocumentProvider,
-)
+from .models import ResearchRunRequest, SourceRecord, EvidenceRecord, ClaimRecord, DossierCardRecord
+from .providers import DemoSearchProvider, HttpDocumentProvider, DemoTranslationProvider, DemoAIProvider
 from .research_agent import ResearchAgent
 from .security import SSRFError
 
@@ -91,7 +77,7 @@ async def execute_research_run(req: ResearchRunRequest) -> None:
                     sources.append(src)
             except SSRFError as e:
                 logger.warning("SSRF blocked: %s", e)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.warning("Fetch failed %s: %s", r.url, e)
             await _update_status(req.run_id, "fetching", 35 + int(i/max(len(results[:20]),1)*25))
 
@@ -118,7 +104,7 @@ async def execute_research_run(req: ResearchRunRequest) -> None:
                     req.run_id, len(sources), len(evidence), len(claims))
 
     except Exception as e:
-        logger.error("Run %s failed: %s", req.run_id, e, exc_info=True)  # noqa: G201
+        logger.error("Run %s failed: %s", req.run_id, e, exc_info=True)
         await _update_status(req.run_id, "failed", error=str(e))
 
 # ── DB helpers ────────────────────────────────────────────────

@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+
 # ── Inbound ───────────────────────────────────────────────────
 
 class ResearchRunRequest(BaseModel):
@@ -183,7 +184,7 @@ class ClaimRecord(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def verified_requires_evidence(self) -> ClaimRecord:
+    def verified_requires_evidence(self) -> "ClaimRecord":
         """
         SPEC RULE: Never silently upgrade a reported claim to verified.
         If status is verified, there must be supporting evidence.

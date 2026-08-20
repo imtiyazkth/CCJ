@@ -130,7 +130,7 @@ This creates all tables in your Supabase PostgreSQL instance and applies RLS pol
 ## Step 8: Seed demo data
 
 ```bash
-pnpm db:seed
+CCJ_DEMO_PASSWORD=YourPassword123! pnpm db:seed
 ```
 
 Creates:
@@ -266,6 +266,7 @@ ip addr show wlan0 | grep 'inet '
 | `PROVIDER_MODE` | ✅ | `demo` | `demo` or `live` |
 | `NEXT_PUBLIC_API_URL` | ✅ | `http://localhost:3001` | API URL for web app |
 | `ALLOWED_ORIGINS` | ✅ | `http://localhost:3000` | CORS allowed origins |
+| `CCJ_DEMO_PASSWORD` | ✅ seed | — | Password for demo@ccj.local (min 8 chars) |
 | `WORKER_SECRET` | ⚪ | — | Only needed if running Python worker |
 | `OPENAI_API_KEY` | ⚪ | — | Live AI — never in browser |
 | `ANTHROPIC_API_KEY` | ⚪ | — | Live AI — never in browser |

@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urljoin, urlparse
-
+from urllib.parse import urlparse, urljoin
 
 class SSRFError(Exception):
     """Raised when a URL is blocked due to SSRF risk."""
@@ -85,7 +84,7 @@ def validate_fetch_url(raw_url: str) -> str:
 
     for _family, _type, _proto, _canonname, sockaddr in results:
         ip_addr = sockaddr[0]
-        if is_private_ip(ip_addr):  # type: ignore
+        if is_private_ip(ip_addr):
             raise SSRFError(
                 f"Hostname {hostname!r} resolves to private address {ip_addr!r}"
             )
@@ -98,7 +97,7 @@ def resolve_redirect(base_url: str, location: str) -> str:
     Resolve a Location header value against the base URL.
     Handles relative redirects (/path, ../path) safely.
     """
-    if location.startswith(("http://", "https://")):
+    if location.startswith("http://") or location.startswith("https://"):
         return location
     return urljoin(base_url, location)
 
