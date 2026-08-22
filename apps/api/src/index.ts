@@ -1,7 +1,20 @@
 /**
+ * Load .env from monorepo root (two levels above apps/api/).
+ * Must be the very first import so all subsequent code sees env vars.
+ */
+import { config as loadEnv } from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+loadEnv({ path: resolve(__dirname, "../../.env") });
+
+/**
  * CCJ API Server — Android/Supabase edition
  * Zero mandatory external services in PROVIDER_MODE=demo.
  */
+import "dotenv/config";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";

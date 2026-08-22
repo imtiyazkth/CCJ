@@ -130,24 +130,6 @@ export function I18nProvider({ locale, messages, children }: I18nProviderProps) 
  * Load locale messages at the server component / layout level.
  * Called once per request in layout.tsx.
  */
-export async function loadMessages(locale: string): Promise<Messages> {
-  try {
-    // Dynamic import — Next.js will bundle each locale separately
-    const mod = await import(
-      `../../../../packages/i18n/locales/${locale}.json`,
-      { assert: { type: "json" } }
-    );
-    return mod.default as Messages;
-  } catch {
-    // Fallback to English if locale file missing
-    console.error(`[i18n] Could not load locale "${locale}" — falling back to "en"`);
-    const en = await import("../../../../packages/i18n/locales/en.json", {
-      assert: { type: "json" },
-    });
-    return en.default as Messages;
-  }
-}
-
 // ── Utility: detect locale from Accept-Language header ────────
 
 export function detectLocaleFromHeader(header: string): SupportedLocale {

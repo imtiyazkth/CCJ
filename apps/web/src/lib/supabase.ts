@@ -1,20 +1,25 @@
-/**
- * CCJ Web — Supabase Client
- * Browser client + server client (for Next.js App Router).
- */
+"use client";
 
 import { createBrowserClient } from "@supabase/ssr";
 
-const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"]!;
-const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]!;
+const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"] ?? "";
+const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] ?? "";
+
+export const supabaseConfigured =
+  SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
 
 /** Browser-side Supabase client (use in Client Components) */
 export function createSupabaseBrowserClient() {
+  if (!supabaseConfigured) {
+    // Return a no-op stub — app will show setup page instead of crashing
+    return null as any;
+  }
   return createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
 /** API base URL */
-export const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
+export const API_URL =
+  process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 /** Fetch wrapper that attaches the Supabase access token */
 export async function apiFetch<T>(
