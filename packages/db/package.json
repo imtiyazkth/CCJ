@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/schema.js",
+  "main": "./dist/schema.js",
   "exports": {
-    "./schema": "./src/schema.ts",
+    "./schema": {
+      "import": "./dist/schema.js",
+      "types": "./dist/schema.d.ts"
+    },
     "./seed": "./src/seed.ts"
   },
   "scripts": {
@@ -13,7 +16,8 @@
     "seed": "tsx src/seed.ts",
     "studio": "drizzle-kit studio",
     "generate": "drizzle-kit generate",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -27,5 +31,6 @@
     "drizzle-kit": "^0.30.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
-  }
+  },
+  "types": "./dist/schema.d.ts"
 }

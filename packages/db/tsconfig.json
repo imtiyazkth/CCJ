@@ -5,7 +5,10 @@
     "moduleResolution": "NodeNext",
     "outDir": "./dist",
     "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "exactOptionalPropertyTypes": false
   },
-  "include": ["src/schema.ts", "src/migrations/**/*"]
+  "include": ["src/schema.ts"]
 }

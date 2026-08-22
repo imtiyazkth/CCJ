@@ -11,10 +11,13 @@ COPY packages/providers  ./packages/providers
 COPY packages/db         ./packages/db
 COPY apps/api            ./apps/api
 
-# Install all deps and build
+# Install all deps
 RUN pnpm install --frozen-lockfile
+
+# Build in dependency order — db must be built before api
 RUN pnpm --filter @ccj/types build
 RUN pnpm --filter @ccj/providers build
+RUN pnpm --filter @ccj/db build
 RUN pnpm --filter @ccj/api build
 
 # ── Production stage ──────────────────────────────────────────
@@ -27,12 +30,18 @@ RUN npm install -g pnpm@9.15.0
 COPY --from=builder /workspace/package.json .
 COPY --from=builder /workspace/pnpm-workspace.yaml .
 COPY --from=builder /workspace/pnpm-lock.yaml .
-COPY --from=builder /workspace/packages/types      ./packages/types
-COPY --from=builder /workspace/packages/providers  ./packages/providers
-COPY --from=builder /workspace/packages/db         ./packages/db
-COPY --from=builder /workspace/apps/api            ./apps/api
+COPY --from=builder /workspace/packages/types/package.json     ./packages/types/package.json
+COPY --from=builder /workspace/packages/types/dist             ./packages/types/dist
+COPY --from=builder /workspace/packages/providers/package.json ./packages/providers/package.json
+COPY --from=builder /workspace/packages/providers/dist         ./packages/providers/dist
+COPY --from=builder /workspace/packages/db/package.json        ./packages/db/package.json
+COPY --from=builder /workspace/packages/db/dist                ./packages/db/dist
+COPY --from=builder /workspace/apps/api/package.json           ./apps/api/package.json
+COPY --from=builder /workspace/apps/api/dist                   ./apps/api/dist
 
-RUN pnpm install --frozen-lockfile --prod 2>/dev/null || true
+# Install production deps only
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts 2>/dev/null || \
+    pnpm install --frozen-lockfile --ignore-scripts
 
 USER ccj
 EXPOSE 3001
