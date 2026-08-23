@@ -15,7 +15,7 @@ const CLAIM_TYPE_LABEL: Record<string, string> = {
 };
 
 export default function ClaimsPage({ params }: PageProps) {
-  const {} = useAuth();
+  const {user, } = useAuth();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -24,7 +24,7 @@ export default function ClaimsPage({ params }: PageProps) {
   const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
-    if (!) return;
+    if (!user) return;
     Promise.all([
       apiFetch<Project>(`/api/projects/${id}`),
       apiFetch<Claim[]>(`/api/projects/${id}/claims`),

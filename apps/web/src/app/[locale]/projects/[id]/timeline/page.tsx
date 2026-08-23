@@ -17,7 +17,7 @@ interface EvidenceWithSource extends Evidence {
 }
 
 export default function TimelinePage({ params }: PageProps) {
-  const {} = useAuth();
+  const {user, } = useAuth();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
@@ -26,7 +26,7 @@ export default function TimelinePage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!) return;
+    if (!user) return;
     Promise.all([
       apiFetch<Project>(`/api/projects/${id}`),
       apiFetch<Source[]>(`/api/projects/${id}/sources`),

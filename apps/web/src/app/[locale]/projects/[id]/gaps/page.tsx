@@ -10,7 +10,7 @@ import type { Claim, Project } from "@ccj/types";
 interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 export default function GapsPage({ params }: PageProps) {
-  const {} = useAuth();
+  const {user, } = useAuth();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -18,7 +18,7 @@ export default function GapsPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!) return;
+    if (!user) return;
     Promise.all([
       apiFetch<Project>(`/api/projects/${id}`),
       apiFetch<Claim[]>(`/api/projects/${id}/claims`),

@@ -25,7 +25,7 @@ const CARD_TYPE_COLOR: Record<string, string> = {
 };
 
 export default function DossierPage({ params }: PageProps) {
-  const {} = useAuth();
+  const {user, } = useAuth();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [cards, setCards] = useState<DossierCard[]>([]);
@@ -33,7 +33,7 @@ export default function DossierPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!) return;
+    if (!user) return;
     Promise.all([
       apiFetch<Project>(`/api/projects/${id}`),
       apiFetch<DossierCard[]>(`/api/projects/${id}/dossier`),

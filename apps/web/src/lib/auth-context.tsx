@@ -3,15 +3,15 @@
 import {
   createContext, useContext, useEffect, useState, useCallback,
 } from "react";
-import type { User, Session } from "@supabase/supabase-js";
+import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient, supabaseConfigured } from "./supabase";
 
 interface AuthContextValue {
-  user:        User | null;
-  session:     Session | null;
-  loading:     boolean;
-  configured:  boolean;
-  token:       string | null;
+  user:       User | null;
+  session:    Session | null;
+  loading:    boolean;
+  configured: boolean;
+  token:      string | null;
   signIn:  (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
 }
@@ -27,14 +27,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabaseConfigured) { setLoading(false); return; }
     const sb = createSupabaseBrowserClient();
 
-    sb.auth.getSession().then(({ data }) => {
+    void sb.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
       setLoading(false);
     });
 
     const { data: { subscription } } = sb.auth.onAuthStateChange(
-      (_event, session) => {
+      (_event: AuthChangeEvent, session: Session | null) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string): Promise<string | null> => {
     if (!supabaseConfigured) return "Supabase not configured";
     const sb = createSupabaseBrowserClient();
     const { error } = await sb.auth.signInWithPassword({ email, password });
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;

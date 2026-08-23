@@ -11,7 +11,7 @@ import type { ResearchRunExtended } from "@ccj/types";
 interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 export default function ResearchPage({ params }: PageProps) {
-  const {} = useAuth();
+  const {user, } = useAuth();
   const { t } = useTranslation();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
@@ -24,13 +24,13 @@ export default function ResearchPage({ params }: PageProps) {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRuns = useCallback(async () => {
-    if (!) return;
+    if (!user) return;
     const { data } = await apiFetch<ResearchRunExtended[]>(`/api/projects/${id}/research`);
     if (data) setRuns(data);
   }, [ id]);
 
   useEffect(() => {
-    if (!) return;
+    if (!user) return;
     Promise.all([
       apiFetch<Project>(`/api/projects/${id}`),
       apiFetch<ResearchRunExtended[]>(`/api/projects/${id}/research`),
@@ -52,10 +52,10 @@ export default function ResearchPage({ params }: PageProps) {
 
   async function handleTrigger(e: React.FormEvent) {
     e.preventDefault();
-    if (!topic.trim() || !) return;
+    if (!topic.trim() || !user) return;
     setSubmitting(true); setError(null);
     const { error: err } = await apiFetch(`/api/projects/${id}/research`, {
-      method: "POST" body: JSON.stringify({ topic, depth, requestedLanguage: locale }),
+      method: "POST", body: JSON.stringify({ topic, depth, requestedLanguage: locale }),
     });
     if (err) setError(err); else fetchRuns();
     setSubmitting(false);
