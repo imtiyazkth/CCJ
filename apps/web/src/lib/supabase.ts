@@ -13,7 +13,6 @@ export function createSupabaseBrowserClient() {
   return createBrowserClient(SUPABASE_URL, SUPABASE_ANON);
 }
 
-export const API_URL =
   process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
 /**
@@ -53,7 +52,7 @@ export async function apiFetch<T>(
   }
 
   try {
-    const res = await fetch(`${API_URL}${path}`, {
+    const res = await fetch(path, {
       ...rest,
       headers: {
         "Content-Type": "application/json",
