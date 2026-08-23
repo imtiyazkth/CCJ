@@ -80,6 +80,14 @@ export default function LoginPage({ params }: { params: Promise<{ locale: string
             </button>
           </form>
 
+          <p className="mt-4 text-center text-sm text-gray-500">
+            Don&apos;t have an account?{" "}
+            <a href={`/${locale}/auth/signup`}
+              className="font-medium text-blue-600 hover:underline">
+              Sign up
+            </a>
+          </p>
+
           <div className="mt-4 rounded-md bg-amber-50 border border-amber-200 p-3">
             <p className="text-xs font-semibold text-amber-800">{t("project.demoNotice")}</p>
             <p className="text-xs text-amber-700 font-mono mt-0.5">demo@ccj.app</p>
