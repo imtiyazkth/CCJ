@@ -17,7 +17,7 @@ interface EvidenceWithSource extends Evidence {
 }
 
 export default function TimelinePage({ params }: PageProps) {
-  const { token } = useAuth();
+  const {} = useAuth();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
@@ -26,11 +26,11 @@ export default function TimelinePage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!) return;
     Promise.all([
-      apiFetch<Project>(`/api/projects/${id}`, { token }),
-      apiFetch<Source[]>(`/api/projects/${id}/sources`, { token }),
-      apiFetch<EvidenceWithSource[]>(`/api/projects/${id}/evidence`, { token }),
+      apiFetch<Project>(`/api/projects/${id}`),
+      apiFetch<Source[]>(`/api/projects/${id}/sources`),
+      apiFetch<EvidenceWithSource[]>(`/api/projects/${id}/evidence`),
     ]).then(([p, s, e]) => {
       if (p.data) setProject(p.data);
       if (s.data) setSources(s.data);
@@ -47,7 +47,7 @@ export default function TimelinePage({ params }: PageProps) {
       if (e.error) setError(e.error);
       setLoading(false);
     });
-  }, [token, id]);
+  }, [ id]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner size="lg" /></div>;
   if (!project) return null;

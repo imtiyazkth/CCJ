@@ -10,7 +10,7 @@ import type { Project } from "@ccj/types";
 
 export default function DashboardPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = use(params);
-  const { user, token, loading, signOut } = useAuth();
+  const { user loading, signOut } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -22,12 +22,12 @@ export default function DashboardPage({ params }: { params: Promise<{ locale: st
   }, [user, loading]);
 
   useEffect(() => {
-    if (!token) return;
-    apiFetch<Project[]>("/api/projects", { token }).then(({ data, error: e }) => {
+    if (!) return;
+    apiFetch<Project[]>("/api/projects").then(({ data, error: e }) => {
       if (e) setError(e); else setProjects(data ?? []);
       setFetching(false);
     });
-  }, [token]);
+  }, []);
 
   if (loading || fetching) return (
     <div className="flex min-h-screen items-center justify-center"><Spinner size="lg" /></div>

@@ -11,7 +11,7 @@ import type { ResearchRunExtended } from "@ccj/types";
 interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 export default function ResearchPage({ params }: PageProps) {
-  const { token } = useAuth();
+  const {} = useAuth();
   const { t } = useTranslation();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
@@ -24,22 +24,22 @@ export default function ResearchPage({ params }: PageProps) {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRuns = useCallback(async () => {
-    if (!token) return;
-    const { data } = await apiFetch<ResearchRunExtended[]>(`/api/projects/${id}/research`, { token });
+    if (!) return;
+    const { data } = await apiFetch<ResearchRunExtended[]>(`/api/projects/${id}/research`);
     if (data) setRuns(data);
-  }, [token, id]);
+  }, [ id]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!) return;
     Promise.all([
-      apiFetch<Project>(`/api/projects/${id}`, { token }),
-      apiFetch<ResearchRunExtended[]>(`/api/projects/${id}/research`, { token }),
+      apiFetch<Project>(`/api/projects/${id}`),
+      apiFetch<ResearchRunExtended[]>(`/api/projects/${id}/research`),
     ]).then(([p, r]) => {
       if (p.data) { setProject(p.data); setTopic(p.data.title); }
       if (r.data) setRuns(r.data);
       setLoading(false);
     });
-  }, [token, id]);
+  }, [ id]);
 
   useEffect(() => {
     const active = runs.some((r) =>
@@ -52,10 +52,10 @@ export default function ResearchPage({ params }: PageProps) {
 
   async function handleTrigger(e: React.FormEvent) {
     e.preventDefault();
-    if (!topic.trim() || !token) return;
+    if (!topic.trim() || !) return;
     setSubmitting(true); setError(null);
     const { error: err } = await apiFetch(`/api/projects/${id}/research`, {
-      method: "POST", token, body: JSON.stringify({ topic, depth, requestedLanguage: locale }),
+      method: "POST" body: JSON.stringify({ topic, depth, requestedLanguage: locale }),
     });
     if (err) setError(err); else fetchRuns();
     setSubmitting(false);

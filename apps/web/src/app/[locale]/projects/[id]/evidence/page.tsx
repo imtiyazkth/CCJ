@@ -10,7 +10,7 @@ import type { Evidence, Project } from "@ccj/types";
 interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 export default function EvidencePage({ params }: PageProps) {
-  const { token } = useAuth();
+  const {} = useAuth();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
@@ -18,17 +18,17 @@ export default function EvidencePage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!) return;
     Promise.all([
-      apiFetch<Project>(`/api/projects/${id}`, { token }),
-      apiFetch<Evidence[]>(`/api/projects/${id}/evidence`, { token }),
+      apiFetch<Project>(`/api/projects/${id}`),
+      apiFetch<Evidence[]>(`/api/projects/${id}/evidence`),
     ]).then(([p, e]) => {
       if (p.data) setProject(p.data);
       if (e.data) setEvidence(e.data);
       if (e.error) setError(e.error);
       setLoading(false);
     });
-  }, [token, id]);
+  }, [ id]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner size="lg" /></div>;
   if (!project) return null;

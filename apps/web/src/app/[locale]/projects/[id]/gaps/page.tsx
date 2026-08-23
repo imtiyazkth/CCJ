@@ -10,7 +10,7 @@ import type { Claim, Project } from "@ccj/types";
 interface PageProps { params: Promise<{ locale: string; id: string }> }
 
 export default function GapsPage({ params }: PageProps) {
-  const { token } = useAuth();
+  const {} = useAuth();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -18,17 +18,17 @@ export default function GapsPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!) return;
     Promise.all([
-      apiFetch<Project>(`/api/projects/${id}`, { token }),
-      apiFetch<Claim[]>(`/api/projects/${id}/claims`, { token }),
+      apiFetch<Project>(`/api/projects/${id}`),
+      apiFetch<Claim[]>(`/api/projects/${id}/claims`),
     ]).then(([p, c]) => {
       if (p.data) setProject(p.data);
       if (c.data) setClaims(c.data);
       if (c.error) setError(c.error);
       setLoading(false);
     });
-  }, [token, id]);
+  }, [ id]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner size="lg" /></div>;
   if (!project) return null;

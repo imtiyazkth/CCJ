@@ -25,7 +25,7 @@ const CARD_TYPE_COLOR: Record<string, string> = {
 };
 
 export default function DossierPage({ params }: PageProps) {
-  const { token } = useAuth();
+  const {} = useAuth();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [cards, setCards] = useState<DossierCard[]>([]);
@@ -33,17 +33,17 @@ export default function DossierPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!) return;
     Promise.all([
-      apiFetch<Project>(`/api/projects/${id}`, { token }),
-      apiFetch<DossierCard[]>(`/api/projects/${id}/dossier`, { token }),
+      apiFetch<Project>(`/api/projects/${id}`),
+      apiFetch<DossierCard[]>(`/api/projects/${id}/dossier`),
     ]).then(([p, d]) => {
       if (p.data) setProject(p.data);
       if (d.data) setCards(d.data);
       if (d.error) setError(d.error);
       setLoading(false);
     });
-  }, [token, id]);
+  }, [ id]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner size="lg" /></div>;
   if (!project) return null;

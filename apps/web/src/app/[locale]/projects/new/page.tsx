@@ -1,19 +1,27 @@
 "use client";
-
-import { use, useState } from "react";
+import { use } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useTranslation } from "@/lib/i18n";
 import { apiFetch } from "@/lib/supabase";
 import { Spinner, ErrorBanner } from "@/components/ui";
 import { SUPPORTED_LOCALES } from "@ccj/types";
 import type { Project } from "@ccj/types";
 
-const LOCALE_LABELS: Record<string, string> = { en: "English", hi: "हिंदी", ar: "العربية" };
+const LOCALE_LABELS: Record<string, string> = {
+  en: "English", hi: "हिंदी", ar: "العربية",
+};
 
-export default function NewProjectPage({ params }: { params: Promise<{ locale: string }> }) {
+export default function NewProjectPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
   const { locale } = use(params);
-  const { token } = useAuth();
+  const { user, loading } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -22,15 +30,30 @@ export default function NewProjectPage({ params }: { params: Promise<{ locale: s
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Wait for auth to load
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!user) {
+    router.replace(`/${locale}/auth/login`);
+    return null;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
     setSubmitting(true);
     setError(null);
 
-    const { data, error } = await apiFetch<Project>("/api/projects", {
+    // apiFetch automatically gets a fresh Supabase token
+    const { data, error: apiError } = await apiFetch<Project>("/api/projects", {
       method: "POST",
-      token: token ?? undefined,
       body: JSON.stringify({
         title: title.trim(),
         description: description.trim() || undefined,
@@ -44,8 +67,8 @@ export default function NewProjectPage({ params }: { params: Promise<{ locale: s
       }),
     });
 
-    if (error || !data) {
-      setError(error ?? "Failed to create project");
+    if (apiError || !data) {
+      setError(apiError ?? "Failed to create project");
       setSubmitting(false);
       return;
     }
@@ -57,29 +80,40 @@ export default function NewProjectPage({ params }: { params: Promise<{ locale: s
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white px-4 py-4">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <Link href={`/${locale}/dashboard`} className="text-sm text-gray-500 hover:text-gray-800">
-            ← Dashboard
+          <Link
+            href={`/${locale}/dashboard`}
+            className="text-sm text-gray-500 hover:text-gray-800"
+          >
+            ← {t("nav.dashboard")}
           </Link>
           <span className="text-gray-300">/</span>
-          <span className="font-semibold text-gray-900">New Project</span>
+          <span className="font-semibold text-gray-900">
+            {t("project.create")}
+          </span>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">New Research Project</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            New Research Project
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
-            A project holds your research dossier — sources, evidence, and traceable claims.
+            A project holds your research dossier — sources, evidence, and
+            traceable claims.
           </p>
         </div>
 
         {error && <ErrorBanner message={error} />}
 
-        <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          {/* Title */}
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+        >
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Project title <span className="text-red-500">*</span>
+              {t("project.title")}{" "}
+              <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -92,10 +126,10 @@ export default function NewProjectPage({ params }: { params: Promise<{ locale: s
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Description <span className="text-gray-400">(optional)</span>
+              {t("project.description")}{" "}
+              <span className="text-gray-400">(optional)</span>
             </label>
             <textarea
               value={description}
@@ -107,22 +141,25 @@ export default function NewProjectPage({ params }: { params: Promise<{ locale: s
             />
           </div>
 
-          {/* Locale settings */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Output language
+                {t("locale.outputLocale")}
               </label>
               <select
                 value={outputLocale}
                 onChange={(e) => setOutputLocale(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
                 {SUPPORTED_LOCALES.map((l) => (
-                  <option key={l} value={l}>{LOCALE_LABELS[l] ?? l}</option>
+                  <option key={l} value={l}>
+                    {LOCALE_LABELS[l] ?? l}
+                  </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-gray-400">Language for generated content</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Language for generated content
+              </p>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -131,14 +168,18 @@ export default function NewProjectPage({ params }: { params: Promise<{ locale: s
               <select
                 value={sourceLanguage}
                 onChange={(e) => setSourceLanguage(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
                 {SUPPORTED_LOCALES.map((l) => (
-                  <option key={l} value={l}>{LOCALE_LABELS[l] ?? l}</option>
+                  <option key={l} value={l}>
+                    {LOCALE_LABELS[l] ?? l}
+                  </option>
                 ))}
                 <option value="mixed">Mixed / Multiple</option>
               </select>
-              <p className="mt-1 text-xs text-gray-400">Primary language of source material</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Primary language of source material
+              </p>
             </div>
           </div>
 
@@ -147,7 +188,7 @@ export default function NewProjectPage({ params }: { params: Promise<{ locale: s
               href={`/${locale}/dashboard`}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              Cancel
+              {t("common.cancel")}
             </Link>
             <button
               type="submit"
@@ -155,7 +196,7 @@ export default function NewProjectPage({ params }: { params: Promise<{ locale: s
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
             >
               {submitting && <Spinner size="sm" />}
-              {submitting ? "Creating…" : "Create Project"}
+              {submitting ? t("common.loading") : t("project.create")}
             </button>
           </div>
         </form>

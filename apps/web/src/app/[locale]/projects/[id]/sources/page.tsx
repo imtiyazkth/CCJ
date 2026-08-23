@@ -17,7 +17,7 @@ const SOURCE_TYPE_ICON: Record<string, string> = {
 };
 
 export default function SourcesPage({ params }: PageProps) {
-  const { token } = useAuth();
+  const {} = useAuth();
   const { locale, id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
@@ -25,17 +25,17 @@ export default function SourcesPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!) return;
     Promise.all([
-      apiFetch<Project>(`/api/projects/${id}`, { token }),
-      apiFetch<Source[]>(`/api/projects/${id}/sources`, { token }),
+      apiFetch<Project>(`/api/projects/${id}`),
+      apiFetch<Source[]>(`/api/projects/${id}/sources`),
     ]).then(([p, s]) => {
       if (p.data) setProject(p.data);
       if (s.data) setSources(s.data);
       if (s.error) setError(s.error);
       setLoading(false);
     });
-  }, [token, id]);
+  }, [ id]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner size="lg" /></div>;
   if (!project) return null;
