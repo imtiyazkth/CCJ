@@ -141,9 +141,33 @@ export async function searchGitHub(q: string, n = 4): Promise<SearchResult[]> {
 }
 
 // ── Master social search — all platforms in parallel ─────────
-export interface SocialSearchResult extends SearchResult {
-  platform: string;
-  thumbnail?: string;
+export interface SocialSearchResult {
+  url:         string;
+  title:       string;
+  snippet:     string;
+  source:      string;
+  publishedAt: string | null;
+  language:    string;
+  // FetchResult-compatible fields
+  timestamp:   string | null;   // alias for publishedAt
+  credibility: number;          // default 0.55 for social
+  platform:    string;
+  thumbnail?:  string;
+}
+
+function normaliseSocial(items: unknown[], platform: string, credibility: number): SocialSearchResult[] {
+  return (items as Array<Record<string, unknown>>).map(item => ({
+    url:         String(item["url"] ?? ""),
+    title:       String(item["title"] ?? ""),
+    snippet:     String(item["snippet"] ?? ""),
+    source:      String(item["source"] ?? platform),
+    publishedAt: (item["publishedAt"] as string | null) ?? (item["timestamp"] as string | null) ?? null,
+    language:    String(item["language"] ?? "en"),
+    timestamp:   (item["publishedAt"] as string | null) ?? (item["timestamp"] as string | null) ?? null,
+    credibility: typeof item["credibility"] === "number" ? item["credibility"] : credibility,
+    platform:    String(item["platform"] ?? platform),
+    thumbnail:   item["thumbnail"] as string | undefined,
+  })).filter(r => r.url);
 }
 
 export async function searchAllSocialMedia(
@@ -163,15 +187,22 @@ export async function searchAllSocialMedia(
     ]);
 
   const all: SocialSearchResult[] = [];
-  for (const r of [yt, twitter, instagram, linkedin, reddit, facebook, threads, github]) {
-    if (r.status === "fulfilled") {
-      for (const item of r.value) {
-        all.push({
-          ...item,
-          platform: (item as any).platform ?? "web",
-        } as SocialSearchResult);
-      }
+  const sources = [
+    { result: yt,        platform: "youtube",   cred: 0.60 },
+    { result: twitter,   platform: "twitter",   cred: 0.50 },
+    { result: instagram, platform: "instagram", cred: 0.45 },
+    { result: linkedin,  platform: "linkedin",  cred: 0.55 },
+    { result: reddit,    platform: "reddit",    cred: 0.50 },
+    { result: facebook,  platform: "facebook",  cred: 0.45 },
+    { result: threads,   platform: "threads",   cred: 0.45 },
+    { result: github,    platform: "github",    cred: 0.70 },
+  ];
+  for (const { result, platform, cred } of sources) {
+    if (result.status === "fulfilled") {
+      all.push(...normaliseSocial(result.value, platform, cred));
     }
   }
-  return all;
+  // Deduplicate by URL
+  const seen = new Set<string>();
+  return all.filter(r => r.url && !seen.has(r.url) && seen.add(r.url));
 }

@@ -6,15 +6,17 @@
  */
 
 export interface FetchResult {
-  title:       string;
-  source:      string;
-  platform:    string;
-  url:         string;
-  snippet:     string;
-  timestamp:   string | null;
-  credibility: number;   // 0.0–1.0
-  language:    string;
-  raw?:        unknown;
+  title:        string;
+  source:       string;
+  platform:     string;
+  url:          string;
+  snippet:      string;
+  timestamp:    string | null;
+  credibility:  number;      // 0.0–1.0
+  language:     string;
+  publishedAt?: string | null;
+  thumbnail?:   string;
+  raw?:         unknown;
 }
 
 const H = { "User-Agent": "CCJ-OSINT/2.0 (research platform)", "Accept": "application/json" };

@@ -20,6 +20,7 @@ import { getDb }         from "@/lib/db.server";
 import { requireUser, ok, err } from "@/lib/auth.server";
 import { extractSearchEntities } from "@/lib/query-cleaner";
 import { fetchMultiPlatformData } from "@/lib/providers/fetcher";
+import type { FetchResult } from "@/lib/providers/fetcher";
 import { searchAllSocialMedia }   from "@/lib/providers/social-search";
 import { SocialMediaAgent }       from "@/lib/agents/social-media-agent";
 import { NewsGovtAgent }          from "@/lib/agents/news-govt-agent";
@@ -142,7 +143,20 @@ export async function POST(req: NextRequest, { params }: Params) {
           searchAllSocialMedia(entity, depth === "quick" ? 3 : depth === "deep" ? 6 : 4),
         ]);
 
-        const allData = [...webData, ...socialData];
+        // Normalise social results to FetchResult shape
+        const normalisedSocial: FetchResult[] = socialData.map(s => ({
+          title:       s.title,
+          source:      s.source,
+          platform:    s.platform,
+          url:         s.url,
+          snippet:     s.snippet,
+          timestamp:   s.timestamp ?? s.publishedAt ?? null,
+          credibility: s.credibility,
+          language:    s.language,
+          publishedAt: s.publishedAt ?? s.timestamp ?? null,
+          thumbnail:   s.thumbnail,
+        }));
+        const allData: FetchResult[] = [...webData, ...normalisedSocial];
         console.log(`[Fetch] ${allData.length} items from ${
           [...new Set(allData.map(d => d.platform))].join(", ")
         }`);
