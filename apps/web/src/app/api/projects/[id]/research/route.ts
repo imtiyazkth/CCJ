@@ -206,9 +206,6 @@ export async function POST(req: NextRequest, { params }: Params) {
 
         const completedAt = new Date();
 
-        const groupBySrc = (label: string) =>
-          allResults.filter(r => r.source.includes(label)).map(r => `  → ${r.title}`).join("\n");
-
         await db.insert(dossierCards).values({
           projectId,
           researchRunId: runId,
