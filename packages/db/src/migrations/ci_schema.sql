@@ -444,3 +444,22 @@ CREATE TRIGGER on_auth_user_created
 --
 -- Expected: audit_log, claim_evidence, claims, dossier_cards,
 --           evidence, projects, research_runs, sources, users
+
+-- ── Research Memory Table (Module 4) ─────────────────────────
+CREATE TABLE IF NOT EXISTS public.research_memories (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id     UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  entity_id      TEXT NOT NULL,
+  entity_name    TEXT NOT NULL,
+  intent         TEXT,
+  summary        TEXT NOT NULL,
+  key_facts      JSONB,
+  query_history  TEXT[] NOT NULL DEFAULT '{}',
+  claim_ids      UUID[] NOT NULL DEFAULT '{}',
+  source_ids     UUID[] NOT NULL DEFAULT '{}',
+  run_count      INTEGER NOT NULL DEFAULT 1,
+  last_updated   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS memory_project_entity_idx
+  ON public.research_memories(project_id, entity_id);

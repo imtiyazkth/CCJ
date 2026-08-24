@@ -1,18 +1,65 @@
+/**
+ * CCJ Research Route — OSINT Multi-Agent Pipeline
+ *
+ * Flow (async, returns 202 immediately):
+ *   1. AI query cleaner → extract entity + intent
+ *   2. Load memory (persistent context from prior runs)
+ *   3. Multi-platform data fetch (8 sources parallel)
+ *   4. Social Media Agent
+ *   5. News & Govt Agent
+ *   6. Fact-Checker Agent (cross-references 3+4)
+ *   7. Save all artefacts to DB
+ *   8. Update persistent memory
+ */
+
 import { NextRequest } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { after } from "next/server";
-import { getDb } from "@/lib/db.server";
+
+import { getDb }         from "@/lib/db.server";
 import { requireUser, ok, err } from "@/lib/auth.server";
+import { extractSearchEntities } from "@/lib/query-cleaner";
+import { fetchMultiPlatformData } from "@/lib/providers/fetcher";
+import { searchAllSocialMedia }   from "@/lib/providers/social-search";
+import { SocialMediaAgent }       from "@/lib/agents/social-media-agent";
+import { NewsGovtAgent }          from "@/lib/agents/news-govt-agent";
+import { FactCheckerAgent }       from "@/lib/agents/fact-checker-agent";
+import { loadMemory, saveMemory, buildMemoryPrompt } from "@/lib/memory-engine";
+import type { SocialMediaAnalysis } from "@/lib/agents/social-media-agent";
+import type { NewsGovtAnalysis }    from "@/lib/agents/news-govt-agent";
+import type { FactCheckResult }     from "@/lib/agents/fact-checker-agent";
+
 import {
   projects, researchRuns, sources,
   evidence, claims, dossierCards,
 } from "@ccj/db/schema";
-import { runAllSources, getWikipediaArticle } from "@/lib/providers/free-search";
-import { searchAllSocialMedia } from "@/lib/providers/social-search";
-import { generateResearchPlan, extractClaims } from "@/lib/providers/ai";
 
 type Params = { params: Promise<{ id: string }> };
 
+// ── Status streaming helper ───────────────────────────────────
+async function updateStatus(
+  runId: string,
+  status: string,
+  pct: number,
+  extra?: Record<string, unknown>
+) {
+  const db = getDb();
+  await db.update(researchRuns)
+    .set({ status: status as any, progressPct: pct, ...extra })
+    .where(eq(researchRuns.id, runId))
+    .catch(() => {});
+}
+
+function safeHost(url: string, fb: string): string {
+  try { return new URL(url).hostname; } catch { return fb; }
+}
+
+function safeHash(url: string): string {
+  return Buffer.from(url).toString("base64")
+    .replace(/[^a-zA-Z0-9]/g, "0").slice(0, 64).padEnd(64, "0");
+}
+
+// ── GET: list runs ────────────────────────────────────────────
 export async function GET(req: NextRequest, { params }: Params) {
   try {
     const user = await requireUser(req);
@@ -31,31 +78,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 }
 
-function safeHostname(url: string, fallback: string): string {
-  try { return new URL(url).hostname; } catch { return fallback; }
-}
-
-function safeHash(url: string): string {
-  return Buffer.from(url).toString("base64")
-    .replace(/[^a-zA-Z0-9]/g, "0").slice(0, 64).padEnd(64, "0");
-}
-
-function credTier(source: string): "primary"|"verified"|"credible"|"reported"|"unknown" {
-  if (["Wikipedia","Academic (OpenAlex)"].includes(source)) return "credible";
-  if (["The Guardian","NewsAPI"].some(s => source.includes(s)))    return "credible";
-  if (["YouTube","GitHub"].includes(source))                        return "reported";
-  return "reported";
-}
-
-function srcType(source: string): "webpage"|"video"|"social"|"academic"|"news" {
-  if (source === "YouTube")                   return "video";
-  if (source === "Academic (OpenAlex)")       return "academic";
-  if (source === "Wikipedia")                 return "academic";
-  if (["X (Twitter)","Instagram","LinkedIn",
-       "Reddit","Facebook","Threads"].includes(source)) return "social";
-  return "news";
-}
-
+// ── POST: trigger new research run ────────────────────────────
 export async function POST(req: NextRequest, { params }: Params) {
   try {
     const user = await requireUser(req);
@@ -65,168 +88,227 @@ export async function POST(req: NextRequest, { params }: Params) {
     };
     if (!body.topic?.trim()) return err("Topic required", 400);
 
-    const topic    = body.topic.trim();
-    const depth    = (body.depth ?? "standard") as "quick"|"standard"|"deep";
-    const language = body.requestedLanguage ?? "en";
-    const db       = getDb();
+    const rawTopic  = body.topic.trim();
+    const depth     = (body.depth ?? "standard") as "quick"|"standard"|"deep";
+    const db        = getDb();
 
+    // Verify project ownership
     const [p] = await db.select().from(projects)
       .where(and(eq(projects.id, projectId), eq(projects.userId, user.id))).limit(1);
     if (!p) return err("Not found", 404);
+
+    // ── Module 1: Clean query BEFORE creating the run ────────
+    const cleanedQuery = await extractSearchEntities(rawTopic);
 
     const [latest] = await db.select({ v: researchRuns.version })
       .from(researchRuns).where(eq(researchRuns.projectId, projectId))
       .orderBy(desc(researchRuns.version)).limit(1);
 
-    const searchStartedAt = new Date().toISOString();
-
+    // Create run record — return 202 immediately
     const [run] = await db.insert(researchRuns).values({
       projectId,
       version:           (latest?.v ?? 0) + 1,
       status:            "planning",
-      depth, topic,
-      requestedLanguage: language,
+      depth,
+      topic:             cleanedQuery.cleanEntity || rawTopic,
+      requestedLanguage: cleanedQuery.language,
       progressPct:       5,
     }).returning();
 
     if (!run) return err("Failed to create run", 500);
 
+    // ── Background pipeline (Modules 2–5) ────────────────────
     after(async () => {
       const runId = run.id;
-      const upd = (s: string, pct: number) =>
-        db.update(researchRuns).set({ status: s as any, progressPct: pct })
-          .where(eq(researchRuns.id, runId)).catch(() => {});
+      const language = cleanedQuery.language;
+      const entity   = cleanedQuery.cleanEntity;
 
       try {
-        // Plan + all sources fire simultaneously
-        const [plan, webData, socialData] = await Promise.all([
-          generateResearchPlan(topic),
-          runAllSources(topic, language, depth),
-          searchAllSocialMedia(topic, depth === "quick" ? 3 : depth === "deep" ? 6 : 4),
+        // ── Module 4: Load memory ────────────────────────────
+        await updateStatus(runId, "planning", 10);
+        const priorMemory = await loadMemory(projectId, cleanedQuery.entitySlug);
+        const memoryPrompt = buildMemoryPrompt(priorMemory);
+
+        if (priorMemory && !priorMemory.isNew) {
+          console.log(`[Memory] Loaded ${priorMemory.runCount} prior runs for "${entity}"`);
+        }
+
+        // ── Module 2: Fetch all platforms ────────────────────
+        await updateStatus(runId, "searching", 20);
+        const startTime = new Date().toISOString();
+
+        const [webData, socialData] = await Promise.all([
+          fetchMultiPlatformData(entity, cleanedQuery.intent, language, depth),
+          searchAllSocialMedia(entity, depth === "quick" ? 3 : depth === "deep" ? 6 : 4),
         ]);
 
-        await upd("fetching", 35);
+        const allData = [...webData, ...socialData];
+        console.log(`[Fetch] ${allData.length} items from ${
+          [...new Set(allData.map(d => d.platform))].join(", ")
+        }`);
 
-        await db.update(researchRuns).set({
+        await updateStatus(runId, "fetching", 40, {
           researchPlan: {
-            researchQuestions:      plan.researchQuestions,
-            queries:                plan.queries.map((q, i) => ({
-              query: q, provider: "multi", priority: i + 1,
-            })),
-            primarySourceTargets:   [],
-            secondarySourceTargets: [],
-            socialSourceTargets:    socialData.slice(0, 5).map(s => s.url),
-            legalQuestions:         plan.legalQuestions,
-            expectedEntities:       plan.keyEntities,
-            dateRange:              { start: null, end: null },
-            riskFlags:              plan.riskFlags,
-            searchedAt:             searchStartedAt,
+            researchQuestions:     cleanedQuery.keywords.map(k => `What is known about: ${k}?`),
+            queries:               cleanedQuery.keywords.map((k, i) => ({ query: k, provider: "multi", priority: i + 1 })),
+            primarySourceTargets:  [],
+            secondarySourceTargets:[],
+            socialSourceTargets:   socialData.slice(0, 5).map(s => s.url),
+            legalQuestions:        cleanedQuery.intent === "legal" ? [`Legal context for ${entity}`] : [],
+            expectedEntities:      [entity],
+            dateRange:             { start: null, end: null },
+            riskFlags:             priorMemory ? [`Prior research loaded (Run #${priorMemory.runCount})`] : [],
+            cleanedQuery:          { entity, intent: cleanedQuery.intent, entityType: cleanedQuery.entityType },
+            memoryContext:         priorMemory?.summary?.slice(0, 300) ?? null,
+            searchedAt:            startTime,
+            memoryPrompt,
           },
-        }).where(eq(researchRuns.id, runId)).catch(() => {});
+        });
 
-        await upd("extracting", 55);
+        // ── Module 3: Multi-agent pipeline ───────────────────
+        await updateStatus(runId, "extracting", 55);
 
-        const { results: webResults, instantAnswer } = webData;
-        const allResults = [...webResults, ...socialData];
+        const socialAgent  = new SocialMediaAgent();
+        const newsAgent    = new NewsGovtAgent();
 
-        const maxSrc = depth === "quick" ? 8 : depth === "deep" ? 25 : 15;
+        const [socialResult, newsResult] = await Promise.all([
+          socialAgent.run(allData),
+          newsAgent.run(allData),
+        ]);
+
+        const socialAnalysis = socialResult.output as SocialMediaAnalysis;
+        const newsAnalysis   = newsResult.output as NewsGovtAnalysis;
+
+        await updateStatus(runId, "analysing", 72);
+
+        // Fact-checker runs after both agents complete
+        const factAgent = new FactCheckerAgent();
+        const factResult = await factAgent.run({
+          social: socialAnalysis,
+          news:   newsAnalysis,
+          entity,
+        });
+        const factCheck = factResult.output as FactCheckResult;
+
+        console.log(`[Agents] Social(${Math.round(socialResult.confidence*100)}%) | `
+          + `News(${Math.round(newsResult.confidence*100)}%) | `
+          + `Fact(${Math.round(factResult.confidence*100)}%)`);
+
+        await updateStatus(runId, "analysing", 82);
+
+        // ── Save sources, evidence, claims ───────────────────
         const savedSrcIds: string[] = [];
         const savedEvIds:  string[] = [];
         const savedClIds:  string[] = [];
 
-        await Promise.all(
-          allResults.slice(0, maxSrc).map(async (result) => {
-            if (!result.url) return;
+        const maxSrc = depth === "quick" ? 8 : depth === "deep" ? 25 : 15;
 
+        await Promise.all(
+          allData.slice(0, maxSrc).map(async (item) => {
+            if (!item.url) return;
             const retrievedAt = new Date();
-            const pub = result.publishedAt ? new Date(result.publishedAt) : null;
 
             const [src] = await db.insert(sources).values({
               researchRunId:   runId,
-              url:             result.url,
-              canonicalUrl:    result.url,
-              domain:          safeHostname(result.url, result.source),
-              title:           result.title || "Untitled",
-              publishedAt:     pub,
+              url:             item.url,
+              canonicalUrl:    item.url,
+              domain:          safeHost(item.url, item.source),
+              title:           item.title || "Untitled",
+              publishedAt:     item.timestamp ? new Date(item.timestamp) : null,
               retrievedAt,
-              language:        result.language ?? language,
-              sourceType:      srcType(result.source),
-              credibilityTier: credTier(result.source),
+              language:        item.language ?? language,
+              sourceType:      item.platform === "academic" ? "academic"
+                             : item.platform === "video"    ? "video"
+                             : ["twitter","instagram","reddit","facebook","threads"].includes(item.platform)
+                               ? "social" : "news",
+              credibilityTier: item.credibility >= 0.85 ? "credible"
+                             : item.credibility >= 0.65 ? "reported" : "unknown",
               accessMethod:    "public_web",
-              contentHash:     safeHash(result.url),
+              contentHash:     safeHash(item.url),
               isDemo:          false,
             }).returning({ id: sources.id }).catch(() => [] as {id:string}[]);
 
             if (!src?.id) return;
             savedSrcIds.push(src.id);
 
-            let text = result.snippet ?? "";
-            if (result.source === "Wikipedia" && result.title) {
-              const full = await getWikipediaArticle(result.title, language).catch(() => "");
-              if (full.length > 100) text = full;
-            }
-            if (text.length < 20) return;
-
-            const [ev] = await db.insert(evidence).values({
-              sourceId:  src.id,
-              quote:     text.slice(0, 2000),
-              confidence: credTier(result.source) === "credible" ? 0.85 : 0.60,
-              language:   result.language ?? language,
-              capturedAt: retrievedAt,
-              extractionWarnings: text.length < 150
-                ? ["Short snippet only — visit source for full content"] : [],
-              isDemo: false,
-            }).returning({ id: evidence.id }).catch(() => [] as {id:string}[]);
-
-            if (ev?.id) savedEvIds.push(ev.id);
-
-            const claimTexts = await extractClaims(text, result.title, topic)
-              .catch(() => [] as string[]);
-            for (const ct of claimTexts.slice(0, 3)) {
-              const [c] = await db.insert(claims).values({
-                projectId,
-                claimText:        ct.trim().slice(0, 1000),
-                claimType:        "reported",
-                status:           "unverified",
-                confidence:       credTier(result.source) === "credible" ? 0.70 : 0.45,
-                reasoningSummary: `Source: ${result.title} (${result.source}) — retrieved ${retrievedAt.toISOString()}`,
-                whatIsMissing:    "Cross-reference with primary documents. See source link.",
+            if (item.snippet?.length > 20) {
+              const [ev] = await db.insert(evidence).values({
+                sourceId:           src.id,
+                quote:              item.snippet.slice(0, 2000),
+                confidence:         item.credibility,
+                language:           item.language ?? language,
+                capturedAt:         retrievedAt,
+                extractionWarnings: item.snippet.length < 100
+                  ? ["Short snippet — visit source for full content"] : [],
                 isDemo: false,
-              }).returning({ id: claims.id }).catch(() => [] as {id:string}[]);
-              if (c?.id) savedClIds.push(c.id);
+              }).returning({ id: evidence.id }).catch(() => [] as {id:string}[]);
+              if (ev?.id) savedEvIds.push(ev.id);
             }
           })
         );
 
-        await upd("analysing", 85);
+        // Save fact-checked claims
+        for (const fc of factCheck.claims) {
+          const [c] = await db.insert(claims).values({
+            projectId,
+            claimText:        fc.claim.slice(0, 1000),
+            claimType:        fc.status === "opinion" ? "opinion" : "reported",
+            status:           fc.status === "verified"  ? "strongly_correlated"
+                            : fc.status === "disputed"  ? "disputed"
+                            : fc.status === "opinion"   ? "opinion"
+                            : "unverified",
+            confidence:       fc.confidence,
+            reasoningSummary: `${fc.verdict} | Supporting: ${fc.supportingEvidence.join("; ").slice(0, 200)}`,
+            whatIsMissing:    `${factCheck.missingEvidence.join("; ").slice(0, 200)}`,
+            isDemo:           false,
+          }).returning({ id: claims.id }).catch(() => [] as {id:string}[]);
+          if (c?.id) savedClIds.push(c.id);
+        }
 
-        const aiMode = process.env["GROQ_API_KEY"] ? "Groq (Llama 3.3)"
-          : process.env["GEMINI_API_KEY"]           ? "Gemini 1.5 Flash"
-          : "Rule-based";
+        const completedAt  = new Date();
+        const aiMode       = process.env["GROQ_API_KEY"] ? "Groq Llama 3.3" : "Gemini 1.5 Flash";
+        const verifiedCt   = factCheck.claims.filter(c => c.status === "verified").length;
+        const disputedCt   = factCheck.claims.filter(c => c.status === "disputed").length;
 
-        const completedAt = new Date();
-
+        // ── Dossier card ──────────────────────────────────────
         await db.insert(dossierCards).values({
           projectId,
           researchRunId: runId,
           cardType:      "summary",
-          title:         `Research: ${topic.slice(0, 80)}`,
+          title:         `OSINT Report: ${entity.slice(0, 80)}`,
           body: [
-            `📌 Topic: ${topic}`,
-            `🕐 Searched: ${searchStartedAt}`,
+            `📌 Entity: ${entity} (${cleanedQuery.entityType})`,
+            `🎯 Intent: ${cleanedQuery.intent}`,
+            `🕐 Searched: ${startTime}`,
             `✅ Completed: ${completedAt.toISOString()}`,
-            `🔍 Depth: ${depth} | Language: ${language} | AI: ${aiMode}`,
-            `📊 Sources: ${savedSrcIds.length} | Evidence: ${savedEvIds.length} | Claims: ${savedClIds.length}`,
+            `🤖 AI Engine: ${aiMode}`,
+            priorMemory ? `📚 Memory: Research run #${priorMemory.runCount + 1} for this entity` : "🆕 First research run",
             "",
-            "🌐 Web Sources:",
-            ...webResults.slice(0, 6).map(r => `  [${r.source}] ${r.title}`),
+            `📊 Results:`,
+            `  Sources: ${savedSrcIds.length} | Evidence: ${savedEvIds.length} | Claims: ${savedClIds.length}`,
+            `  Verified: ${verifiedCt} | Disputed: ${disputedCt} | Reliability: ${factCheck.overallReliability.toUpperCase()}`,
             "",
-            "📱 Social Media:",
-            ...socialData.slice(0, 6).map(r => `  [${r.source}] ${r.title} — ${r.url}`),
-            instantAnswer ? `\n💡 Quick Answer: ${instantAnswer.slice(0, 500)}` : "",
+            `🌐 Data Sources:`,
+            ...allData.slice(0, 8).map(r => `  [${r.source}] ${r.title.slice(0, 80)}`),
             "",
-            "⚠️ All claims are unverified. Click source links to verify.",
-            plan.riskFlags.length ? `\n🚩 Risk Flags: ${plan.riskFlags.join("; ")}` : "",
+            `📱 Social Media Analysis:`,
+            `  Sentiment: ${socialAnalysis.sentiment} | Bot Risk: ${socialAnalysis.botRisk}`,
+            socialAnalysis.viralClaims.length > 0
+              ? `  Viral Claims: ${socialAnalysis.viralClaims.length} found`
+              : "  No viral claims detected",
+            "",
+            `📰 News & Government:`,
+            `  Official Statements: ${newsAnalysis.officialStatements.length}`,
+            `  Government Sources: ${newsAnalysis.govtDomainHits.length}`,
+            newsAnalysis.keyFacts.length > 0
+              ? `  Key Facts:\n${newsAnalysis.keyFacts.slice(0, 3).map(f => `    • ${f}`).join("\n")}` : "",
+            "",
+            factCheck.contradictions.length > 0
+              ? `⚡ Contradictions:\n${factCheck.contradictions.slice(0, 3).map(c => `  • ${c}`).join("\n")}` : "",
+            "",
+            `📝 Summary: ${newsAnalysis.summary}`,
+            "",
+            "⚠️ Unverified claims require human review. Click source links to verify.",
           ].filter(Boolean).join("\n"),
           claimIds:    savedClIds,
           sourceIds:   savedSrcIds,
@@ -235,20 +317,39 @@ export async function POST(req: NextRequest, { params }: Params) {
           sortOrder:   0,
         }).catch(() => {});
 
-        await db.update(researchRuns).set({
-          status: "complete", progressPct: 100,
-          completedAt,
-        }).where(eq(researchRuns.id, runId)).catch(() => {});
+        // ── Module 4: Save memory ─────────────────────────────
+        await saveMemory(
+          projectId,
+          cleanedQuery,
+          newsAnalysis.summary,
+          newsAnalysis.keyFacts.slice(0, 15),
+          savedClIds,
+          savedSrcIds,
+          priorMemory
+        );
+
+        await updateStatus(runId, "complete", 100, { completedAt });
+
+        console.log(`[Pipeline] Run ${runId} complete — ${savedSrcIds.length} sources, `
+          + `${savedClIds.length} claims, memory updated`);
 
       } catch (e) {
-        await db.update(researchRuns).set({
-          status: "failed",
-          error: String(e).slice(0, 500),
-        }).where(eq(researchRuns.id, runId)).catch(() => {});
+        console.error(`[Pipeline] Run ${runId} failed:`, e);
+        await updateStatus(runId, "failed", 0, { error: String(e).slice(0, 500) });
       }
     });
 
-    return ok(run, 202);
+    // Return 202 immediately — frontend polls /api/research/worker?runId=
+    return ok({
+      ...run,
+      cleanedQuery: {
+        entity:     cleanedQuery.cleanEntity,
+        intent:     cleanedQuery.intent,
+        entityType: cleanedQuery.entityType,
+        keywords:   cleanedQuery.keywords,
+      },
+    }, 202);
+
   } catch (r) {
     if (r instanceof Response) return r;
     return err(String(r), 500);

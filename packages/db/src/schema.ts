@@ -253,3 +253,31 @@ export const claimEvidenceRelations = relations(claimEvidence, ({ one }) => ({
   claim:    one(claims,   { fields: [claimEvidence.claimId],    references: [claims.id] }),
   evidence: one(evidence, { fields: [claimEvidence.evidenceId], references: [evidence.id] }),
 }));
+
+// ── Research Memory (Module 4 — persistent session context) ──
+
+export const researchMemories = pgTable("research_memories", {
+  id:           uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId:    uuid("project_id").notNull()
+                  .references(() => projects.id, { onDelete: "cascade" }),
+  entityId:     text("entity_id").notNull(),        // normalised slug: "narendra-modi"
+  entityName:   text("entity_name").notNull(),      // "Narendra Modi"
+  intent:       text("intent"),                     // "biography", "legal", "news"
+  summary:      text("summary").notNull(),          // AI-condensed summary of all runs
+  keyFacts:     jsonb("key_facts"),                 // { facts: string[], entities: string[] }
+  queryHistory: text("query_history").array()
+                  .notNull().default(sql`'{}'`),    // all queries ever run for this entity
+  claimIds:     uuid("claim_ids").array()
+                  .notNull().default(sql`'{}'`),
+  sourceIds:    uuid("source_ids").array()
+                  .notNull().default(sql`'{}'`),
+  runCount:     integer("run_count").notNull().default(1),
+  lastUpdated:  timestamp("last_updated",  { withTimezone: true }).notNull().defaultNow(),
+  createdAt:    timestamp("created_at",    { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  projectEntityIdx: index("memory_project_entity_idx").on(t.projectId, t.entityId),
+}));
+
+export const researchMemoriesRelations = relations(researchMemories, ({ one }) => ({
+  project: one(projects, { fields: [researchMemories.projectId], references: [projects.id] }),
+}));
