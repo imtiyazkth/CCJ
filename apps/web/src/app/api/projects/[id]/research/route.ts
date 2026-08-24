@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
+import { after } from "next/server";
 import { getDb } from "@/lib/db.server";
 import { requireUser, ok, err } from "@/lib/auth.server";
 import { projects, researchRuns, sources, evidence, claims, dossierCards } from "@ccj/db/schema";
-import { runFreeSearch, getWikipediaArticle } from "@/lib/providers/free-search";
+import { runAllSources, getWikipediaArticle } from "@/lib/providers/free-search";
 import { generateResearchPlan, extractClaims } from "@/lib/providers/ai";
 
 type Params = { params: Promise<{ id: string }> };
@@ -30,208 +31,196 @@ export async function POST(req: NextRequest, { params }: Params) {
   try {
     const user = await requireUser(req);
     const { id: projectId } = await params;
-    const body = await req.json() as {
-      topic: string;
-      depth?: string;
-      requestedLanguage?: string;
-    };
-
+    const body = await req.json() as { topic:string; depth?:string; requestedLanguage?:string };
     if (!body.topic?.trim()) return err("Topic required", 400);
+
     const topic    = body.topic.trim();
-    const depth    = (body.depth ?? "standard") as "quick" | "standard" | "deep";
+    const depth    = (body.depth ?? "standard") as "quick"|"standard"|"deep";
     const language = body.requestedLanguage ?? "en";
     const db       = getDb();
 
-    // Verify project ownership
     const [p] = await db.select().from(projects)
       .where(and(eq(projects.id, projectId), eq(projects.userId, user.id))).limit(1);
     if (!p) return err("Not found", 404);
 
-    // Next version number
     const [latest] = await db.select({ v: researchRuns.version })
       .from(researchRuns).where(eq(researchRuns.projectId, projectId))
       .orderBy(desc(researchRuns.version)).limit(1);
 
-    // Create run record
+    // ── Create run record and return IMMEDIATELY ──────────────
     const [run] = await db.insert(researchRuns).values({
       projectId,
       version:           (latest?.v ?? 0) + 1,
-      status:            "searching",
+      status:            "planning",
       depth,
       topic,
       requestedLanguage: language,
-      progressPct:       10,
+      progressPct:       5,
     }).returning();
 
     if (!run) return err("Failed to create run", 500);
 
-    // ── Run research asynchronously ──────────────────────────
-    // Vercel functions have a 10s limit on free plan, 60s on Pro.
-    // We do the work synchronously within the request for reliability.
+    // ── Process in background — response already sent ─────────
+    after(async () => {
+      const runId = run.id;
+      const update = (status: string, pct: number) =>
+        db.update(researchRuns).set({ status: status as any, progressPct: pct })
+          .where(eq(researchRuns.id, runId)).catch(() => {});
 
-    try {
-      // 1. Generate research plan
-      const plan = await generateResearchPlan(topic);
+      try {
+        // 1. Plan (parallel with search)
+        const [plan, searchData] = await Promise.all([
+          generateResearchPlan(topic),
+          runAllSources(topic, language, depth),
+        ]);
 
-      await db.update(researchRuns).set({
-        status:       "fetching",
-        progressPct:  30,
-        researchPlan: {
-          researchQuestions:     plan.researchQuestions,
-          queries:               plan.queries.map((q, i) => ({ query: q, provider: "free", priority: i + 1 })),
-          primarySourceTargets:  [],
-          secondarySourceTargets:[],
-          socialSourceTargets:   [],
-          legalQuestions:        plan.legalQuestions,
-          expectedEntities:      plan.keyEntities,
-          dateRange:             { start: null, end: null },
-          riskFlags:             plan.riskFlags,
-        },
-      }).where(eq(researchRuns.id, run.id));
+        await update("fetching", 40);
 
-      // 2. Search all free sources
-      const maxPerSource = depth === "quick" ? 3 : depth === "deep" ? 8 : 5;
-      const { results, instantAnswer } = await runFreeSearch(topic, language, maxPerSource);
+        await db.update(researchRuns).set({
+          researchPlan: {
+            researchQuestions:      plan.researchQuestions,
+            queries:                plan.queries.map((q,i) => ({ query:q, provider:"multi", priority:i+1 })),
+            primarySourceTargets:   [],
+            secondarySourceTargets: [],
+            socialSourceTargets:    [],
+            legalQuestions:         plan.legalQuestions,
+            expectedEntities:       plan.keyEntities,
+            dateRange:              { start:null, end:null },
+            riskFlags:              plan.riskFlags,
+          },
+        }).where(eq(researchRuns.id, runId)).catch(() => {});
 
-      await db.update(researchRuns).set({
-        status: "extracting", progressPct: 60,
-      }).where(eq(researchRuns.id, run.id));
+        const { results, instantAnswer } = searchData;
 
-      // 3. Save sources and extract evidence + claims
-      const savedSourceIds:   string[] = [];
-      const savedEvidenceIds: string[] = [];
-      const savedClaimIds:    string[] = [];
+        await update("extracting", 60);
 
-      for (const result of results.slice(0, 15)) {
-        // Save source
-        const [src] = await db.insert(sources).values({
-          researchRunId:   run.id,
-          url:             result.url,
-          canonicalUrl:    result.url,
-          domain:          new URL(result.url).hostname,
-          title:           result.title,
-          language:        language,
-          sourceType:      result.source === "Wikipedia" ? "academic" : "news",
-          credibilityTier: result.source === "Wikipedia" ? "credible" : "reported",
-          accessMethod:    "public_web",
-          contentHash:     Buffer.from(result.url).toString("hex").slice(0, 64).padEnd(64, "0"),
-          isDemo:          false,
-        }).returning({ id: sources.id }).catch(() => []);
+        // 2. Save sources + extract evidence + claims (parallel per source)
+        const savedSourceIds:   string[] = [];
+        const savedEvidenceIds: string[] = [];
+        const savedClaimIds:    string[] = [];
 
-        if (!src) continue;
-        savedSourceIds.push(src.id);
+        // Limit total sources by depth
+        const maxSources = depth === "quick" ? 6 : depth === "deep" ? 20 : 12;
 
-        // Get full Wikipedia article text if available
-        let articleText = result.snippet;
-        if (result.source === "Wikipedia") {
-          const full = await getWikipediaArticle(result.title, language).catch(() => "");
-          if (full) articleText = full.slice(0, 3000);
-        }
+        await Promise.all(
+          results.slice(0, maxSources).map(async (result) => {
+            if (!result.url) return;
 
-        // Save evidence
-        if (articleText.length > 50) {
-          const [ev] = await db.insert(evidence).values({
-            sourceId:           src.id,
-            quote:              articleText.slice(0, 2000),
-            confidence:         result.source === "Wikipedia" ? 0.85 : 0.65,
-            language:           language,
-            extractionWarnings: result.source === "Wikipedia"
-              ? []
-              : ["Snippet only — full article not fetched"],
-            isDemo:             false,
-          }).returning({ id: evidence.id }).catch(() => []);
+            const [src] = await db.insert(sources).values({
+              researchRunId:   runId,
+              url:             result.url,
+              canonicalUrl:    result.url,
+              domain:          (() => { try { return new URL(result.url).hostname; } catch { return result.source; } })(),
+              title:           result.title,
+              publishedAt:     result.publishedAt ? new Date(result.publishedAt) : null,
+              language:        result.language ?? language,
+              sourceType:      result.source.includes("Academic") ? "academic"
+                             : result.source === "Wikipedia"       ? "academic"
+                             : result.source === "Reddit"          ? "social"
+                             : "news",
+              credibilityTier: result.source === "Wikipedia" || result.source.includes("Academic") ? "credible"
+                             : result.source === "The Guardian" || result.source.includes("NewsAPI") ? "credible"
+                             : "reported",
+              accessMethod:    "public_web",
+              contentHash:     Buffer.from(result.url).toString("base64").replace(/[^a-f0-9]/gi,"0").slice(0,64).padEnd(64,"0"),
+              isDemo:          false,
+            }).returning({ id: sources.id }).catch(() => [] as {id:string}[]);
 
-          if (ev) savedEvidenceIds.push(ev.id);
+            if (!src?.id) return;
+            savedSourceIds.push(src.id);
 
-          // Extract claims using AI
-          const claimTexts = await extractClaims(articleText, result.title, topic);
-          for (const claimText of claimTexts) {
-            const [c] = await db.insert(claims).values({
-              projectId:        projectId,
-              claimText:        claimText.trim(),
-              claimType:        "reported",
-              status:           "unverified",
-              confidence:       result.source === "Wikipedia" ? 0.7 : 0.5,
-              reasoningSummary: `Extracted from: ${result.title} (${result.source})`,
-              whatIsMissing:    "Primary source verification. Cross-reference with official documents.",
-              isDemo:           false,
-            }).returning({ id: claims.id }).catch(() => []);
-            if (c) savedClaimIds.push(c.id);
-          }
-        }
+            // Get full text for Wikipedia
+            let text = result.snippet;
+            if (result.source === "Wikipedia" && result.title) {
+              const full = await getWikipediaArticle(result.title, language).catch(() => "");
+              if (full.length > 100) text = full;
+            }
+
+            if (text.length < 30) return;
+
+            // Save evidence
+            const [ev] = await db.insert(evidence).values({
+              sourceId:           src.id,
+              quote:              text.slice(0, 2000),
+              confidence:         result.source === "Wikipedia" || result.source.includes("Academic") ? 0.85
+                                : result.source === "The Guardian" ? 0.80 : 0.60,
+              language:           result.language ?? language,
+              extractionWarnings: text.length < 200 ? ["Snippet only — full article not fetched"] : [],
+              isDemo:             false,
+            }).returning({ id: evidence.id }).catch(() => [] as {id:string}[]);
+
+            if (ev?.id) savedEvidenceIds.push(ev.id);
+
+            // Extract claims via AI
+            const claimTexts = await extractClaims(text, result.title, topic).catch(() => [] as string[]);
+            for (const claimText of claimTexts.slice(0, 3)) {
+              const [c] = await db.insert(claims).values({
+                projectId,
+                claimText:        claimText.trim().slice(0, 1000),
+                claimType:        "reported",
+                status:           "unverified",
+                confidence:       result.source === "Wikipedia" ? 0.70 : 0.50,
+                reasoningSummary: `Extracted from: ${result.title} via ${result.source}`,
+                whatIsMissing:    "Cross-reference with primary documents.",
+                isDemo:           false,
+              }).returning({ id: claims.id }).catch(() => [] as {id:string}[]);
+              if (c?.id) savedClaimIds.push(c.id);
+            }
+          })
+        );
+
+        await update("analysing", 85);
+
+        // 3. Build dossier
+        const aiMode = process.env["GROQ_API_KEY"] ? "Groq (Llama 3.3)"
+          : process.env["GEMINI_API_KEY"]           ? "Gemini 1.5 Flash"
+          : "Rule-based";
+
+        const sourceList = results.slice(0, 10)
+          .map(r => `  [${r.source}] ${r.title}`)
+          .join("\n");
+
+        await db.insert(dossierCards).values({
+          projectId,
+          researchRunId: runId,
+          cardType:      "summary",
+          title:         `Research: ${topic.slice(0, 80)}`,
+          body:          [
+            `Topic: ${topic}`,
+            `Depth: ${depth} | Language: ${language} | AI: ${aiMode}`,
+            `Sources: ${savedSourceIds.length} | Evidence: ${savedEvidenceIds.length} | Claims: ${savedClaimIds.length}`,
+            "",
+            "Sources used:",
+            sourceList,
+            instantAnswer ? `\nInstant answer: ${instantAnswer.slice(0, 400)}` : "",
+            "",
+            "⚠️ Claims are unverified. Review evidence before publishing.",
+          ].filter(Boolean).join("\n"),
+          claimIds:  savedClaimIds,
+          sourceIds: savedSourceIds,
+          evidenceIds: savedEvidenceIds,
+          locale:    language,
+          sortOrder: 0,
+        }).catch(() => {});
+
+        // 4. Done
+        await db.update(researchRuns).set({
+          status:      "complete",
+          progressPct: 100,
+          completedAt: new Date(),
+        }).where(eq(researchRuns.id, runId)).catch(() => {});
+
+      } catch (e) {
+        await db.update(researchRuns).set({
+          status: "failed",
+          error:  String(e).slice(0, 500),
+        }).where(eq(researchRuns.id, runId)).catch(() => {});
       }
+    });
 
-      // 4. Add instant answer as a top evidence if available
-      if (instantAnswer && instantAnswer.length > 30) {
-        const topSrc = savedSourceIds[0];
-        if (topSrc) {
-          await db.insert(evidence).values({
-            sourceId:           topSrc,
-            quote:              instantAnswer.slice(0, 1000),
-            confidence:         0.75,
-            language:           language,
-            extractionWarnings: ["DuckDuckGo Instant Answer — verify with primary source"],
-            isDemo:             false,
-          }).catch(() => {});
-        }
-      }
+    // Return immediately — frontend polls for completion
+    return ok(run, 202);
 
-      // 5. Build dossier summary card
-      const aiMode = process.env["GROQ_API_KEY"] ? "Groq AI"
-        : process.env["GEMINI_API_KEY"]          ? "Gemini AI"
-        : "Rule-based";
-
-      const dossierBody = [
-        `Research Topic: ${topic}`,
-        `Depth: ${depth} | Language: ${language}`,
-        `AI Planning: ${aiMode}`,
-        "",
-        `Sources found: ${savedSourceIds.length}`,
-        `Evidence extracted: ${savedEvidenceIds.length}`,
-        `Claims identified: ${savedClaimIds.length}`,
-        "",
-        "Sources used:",
-        ...results.slice(0, 8).map((r) => `  [${r.source}] ${r.title}`),
-        "",
-        instantAnswer ? `Quick answer: ${instantAnswer.slice(0, 300)}` : "",
-        "",
-        "⚠️ All claims are 'unverified'. Review evidence before publishing.",
-        plan.riskFlags.length ? `Risk flags: ${plan.riskFlags.join("; ")}` : "",
-      ].filter(Boolean).join("\n");
-
-      await db.insert(dossierCards).values({
-        projectId,
-        researchRunId: run.id,
-        cardType:      "summary",
-        title:         `Research Summary: ${topic.slice(0, 80)}`,
-        body:          dossierBody,
-        claimIds:      savedClaimIds,
-        sourceIds:     savedSourceIds,
-        evidenceIds:   savedEvidenceIds,
-        locale:        language,
-        sortOrder:     0,
-      }).catch(() => {});
-
-      // 6. Mark complete
-      await db.update(researchRuns).set({
-        status:      "complete",
-        progressPct: 100,
-        completedAt: new Date(),
-      }).where(eq(researchRuns.id, run.id));
-
-    } catch (researchError) {
-      // Mark failed but don't crash the response
-      await db.update(researchRuns).set({
-        status: "failed",
-        error:  String(researchError),
-      }).where(eq(researchRuns.id, run.id)).catch(() => {});
-    }
-
-    // Return the completed run
-    const [finalRun] = await db.select().from(researchRuns)
-      .where(eq(researchRuns.id, run.id)).limit(1);
-
-    return ok(finalRun, 202);
   } catch (r) {
     if (r instanceof Response) return r;
     return err(String(r), 500);
