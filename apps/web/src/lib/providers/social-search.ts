@@ -170,20 +170,7 @@ function normaliseSocial(items: unknown[], platform: string, credibility: number
   })).filter(r => r.url);
 }
 
-function normaliseSocial(items: unknown[], platform: string, credibility: number): SocialSearchResult[] {
-  return (items as Array<Record<string, unknown>>).map(item => ({
-    url:         String(item["url"] ?? ""),
-    title:       String(item["title"] ?? ""),
-    snippet:     String(item["snippet"] ?? ""),
-    source:      String(item["source"] ?? platform),
-    publishedAt: (item["publishedAt"] as string | null) ?? (item["timestamp"] as string | null) ?? null,
-    language:    String(item["language"] ?? "en"),
-    timestamp:   (item["publishedAt"] as string | null) ?? (item["timestamp"] as string | null) ?? null,
-    credibility: typeof item["credibility"] === "number" ? item["credibility"] : credibility,
-    platform:    String(item["platform"] ?? platform),
-    thumbnail:   item["thumbnail"] as string | undefined,
-  })).filter(r => r.url);
-}
+
 
 export async function searchAllSocialMedia(
   query: string,
