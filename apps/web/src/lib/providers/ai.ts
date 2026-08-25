@@ -153,3 +153,84 @@ Return JSON array of claim strings only:
     .filter((s) => s.length > 40)
     .slice(0, 3);
 }
+
+/**
+ * Generate a concise topic summary — "what is this and why does it matter?"
+ * Used in the dossier to give users a clear overview before diving into sources.
+ */
+export async function generateTopicSummary(
+  topic: string,
+  keyFacts: string[],
+  sourceTitles: string[],
+  intent: string
+): Promise<string> {
+  const GROQ_KEY   = process.env["GROQ_API_KEY"];
+  const GEMINI_KEY = process.env["GEMINI_API_KEY"];
+
+  const prompt = `
+You are an OSINT analyst. Write a clear, factual 3-4 sentence summary answering:
+1. What is "${topic}"?
+2. Who is involved (people, organisations)?
+3. What is the stated purpose/goal?
+4. Which news outlets have reported on this?
+
+Use ONLY information from these sources — do not add anything not present:
+Intent: ${intent}
+Key facts found: ${keyFacts.slice(0, 8).join("; ")}
+Source headlines: ${sourceTitles.slice(0, 6).join(" | ")}
+
+Write in English. Be precise. No bullet points. Plain paragraph only.`;
+
+  async function groq(): Promise<string> {
+    if (!GROQ_KEY) throw new Error("no-groq");
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.2, max_tokens: 250,
+        messages: [
+          { role: "system", content: "You are a concise OSINT research summariser." },
+          { role: "user",   content: prompt },
+        ],
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) throw new Error(`Groq ${r.status}`);
+    const d = await r.json() as { choices?: Array<{ message?: { content?: string } }> };
+    return d.choices?.[0]?.message?.content?.trim() ?? "";
+  }
+
+  async function gemini(): Promise<string> {
+    if (!GEMINI_KEY) throw new Error("no-gemini");
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 250 },
+        }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+    if (!r.ok) throw new Error(`Gemini ${r.status}`);
+    const d = await r.json() as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+    };
+    return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+  }
+
+  for (const fn of [groq, gemini]) {
+    try {
+      const s = await fn();
+      if (s && s.length > 50) return s;
+    } catch { continue; }
+  }
+
+  // Fallback rule-based summary
+  return `${topic} is a topic identified through OSINT research with intent: ${intent}. `
+    + `${sourceTitles.slice(0, 3).join(", ")} have reported on this. `
+    + `${keyFacts[0] ?? "Further research is needed to verify claims."}`;
+}

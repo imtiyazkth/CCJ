@@ -284,6 +284,14 @@ export async function POST(req: NextRequest, { params }: Params) {
         const verifiedCt   = factCheck.claims.filter(c => c.status === "verified").length;
         const disputedCt   = factCheck.claims.filter(c => c.status === "disputed").length;
 
+        // Generate proper topic summary
+        const topicSummary = await generateTopicSummary(
+          entity,
+          newsAnalysis.keyFacts,
+          allData.slice(0, 8).map(r => r.title).filter(Boolean),
+          cleanedQuery.intent
+        ).catch(() => newsAnalysis.summary);
+
         // ── Dossier card ──────────────────────────────────────
         await db.insert(dossierCards).values({
           projectId,
@@ -320,7 +328,7 @@ export async function POST(req: NextRequest, { params }: Params) {
             factCheck.contradictions.length > 0
               ? `⚡ Contradictions:\n${factCheck.contradictions.slice(0, 3).map(c => `  • ${c}`).join("\n")}` : "",
             "",
-            `📝 Summary: ${newsAnalysis.summary}`,
+            `📝 Summary: ${topicSummary}`,
             "",
             "⚠️ Unverified claims require human review. Click source links to verify.",
           ].filter(Boolean).join("\n"),

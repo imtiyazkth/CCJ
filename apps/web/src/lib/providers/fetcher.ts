@@ -19,6 +19,17 @@ export interface FetchResult {
   raw?:         unknown;
 }
 
+
+// ── HTML entity decoder ───────────────────────────────────────
+function cleanSnippet(raw: string): string {
+  return raw
+    .replace(/&lt;/g,  "<").replace(/&gt;/g,  ">")
+    .replace(/&amp;/g, "&").replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ").trim();
+}
+
 const H = { "User-Agent": "CCJ-OSINT/2.0 (research platform)", "Accept": "application/json" };
 const T = (ms: number) => AbortSignal.timeout(ms);
 
@@ -259,7 +270,7 @@ function parseRSSXML(xml: string, label: string, credibility: number): FetchResu
         source:      label,
         platform:    "rss",
         url:         link.trim(),
-        snippet:     desc.slice(0, 400),
+        snippet: cleanSnippet(desc).slice(0, 400),
         timestamp:   pubDate || null,
         credibility,
         language:    "en",
@@ -305,7 +316,7 @@ async function fetchDDGSiteSearch(
         source:      label,
         platform:    site.split(".")[0] ?? "web",
         url:         t.FirstURL ?? "",
-        snippet:     t.Text?.slice(0, 300) ?? "",
+        snippet: cleanSnippet(t.Text ?? "").slice(0, 300) ?? "",
         timestamp:   null,
         credibility: 0.55,
         language:    "en",

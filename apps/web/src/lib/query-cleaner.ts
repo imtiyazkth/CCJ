@@ -79,14 +79,36 @@ function ruleBasedExtract(raw: string): CleanedQuery {
   const isPlace  = /city|state|country|district|village|town|region/i.test(cleaned);
   const entityType = isOrg ? "organization" : isEvent ? "event" : isPlace ? "place" : "person";
 
-  // Generate keyword expansions
-  const base = cleaned.split(" ").filter(w => w.length > 2).slice(0, 5);
+  // Stop words (Hindi + English conversational filler)
+  const STOP_WORDS = new Set([
+    "the","a","an","is","are","was","were","be","been","being",
+    "have","has","had","do","does","did","will","would","could","should",
+    "what","who","where","when","how","why","which","this","that","these",
+    "those","about","for","with","from","into","through","during",
+    // Hindi stop words
+    "karo","kiya","kya","hai","hain","mein","se","ke","ka","ki","ko",
+    "aur","ya","yah","iska","uska","jab","tab","thi","tha","the",
+    "thik","abhiyan","wala","wali","wale","jo","bhi","to","par","per",
+    // Common filler
+    "want","need","make","create","find","tell","show","help",
+    "please","documentary","article","content","research","know",
+  ]);
+
+  // Generate keywords from meaningful words only (length > 2, not stop word)
+  const base = cleaned
+    .split(" ")
+    .filter(w => w.length > 2 && !STOP_WORDS.has(w.toLowerCase()))
+    .slice(0, 5);
+
   const keywords = [
-    cleaned,
-    ...base,
-    intent !== "general" ? `${cleaned} ${intent}` : "",
+    cleaned,                                              // full entity
+    ...base,                                              // individual meaningful words
+    intent !== "general" ? `${cleaned} ${intent}` : "",  // entity + intent
     `${cleaned} news`,
     `${cleaned} official`,
+    intent === "legal"       ? `${cleaned} court` : "",
+    intent === "biography"   ? `${cleaned} profile` : "",
+    intent === "investigation"? `${cleaned} exposed` : "",
   ].filter(Boolean);
 
   return {
