@@ -15,7 +15,7 @@ export interface SearchResult {
 const T = (ms: number) => AbortSignal.timeout(ms);
 
 // ── HTML cleaning ─────────────────────────────────────────────
-function cleanText(raw: string): string {
+function __cleanText(raw: string): string {
   return raw
     // Decode common HTML entities
     .replace(/&lt;/g,  "<")

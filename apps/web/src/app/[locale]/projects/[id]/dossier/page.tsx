@@ -9,24 +9,6 @@ import type { Project, DossierCard, Source } from "@ccj/types";
 
 interface PageProps { params: Promise<{ locale: string; id: string }> }
 
-// Parse the structured dossier body into sections
-function parseDossierBody(body: string) {
-  const lines = body.split("\n").map(l => l.trim()).filter(Boolean);
-  const sections: { heading?: string; lines: string[] }[] = [];
-  let current: { heading?: string; lines: string[] } = { lines: [] };
-
-  for (const line of lines) {
-    // Detect section headers (emoji + colon patterns)
-    if (/^[📌🕐✅🔍📊🌐📱📰📝⚡🤖📚🆕⚠️🚩🎯]/.test(line) && line.includes(":")) {
-      if (current.lines.length > 0 || current.heading) sections.push(current);
-      current = { heading: line, lines: [] };
-    } else {
-      current.lines.push(line);
-    }
-  }
-  if (current.lines.length > 0 || current.heading) sections.push(current);
-  return sections;
-}
 
 export default function DossierPage({ params }: PageProps) {
   const { locale, id } = use(params);
@@ -118,8 +100,6 @@ export default function DossierPage({ params }: PageProps) {
           <div className="space-y-4">
             {cards.map((card, idx) => {
               const isOpen   = open.has(String(idx));
-              const sections = parseDossierBody(card.body);
-
               // Extract key metadata from body
               const bodyLines = card.body.split("\n");
               const entityLine   = bodyLines.find(l => l.includes("Entity:"));
