@@ -336,7 +336,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           researchRunId: runId,
           cardType:      "summary",
           title:         `OSINT Report: ${entity.slice(0, 80)}`,
-          body: [
+          body: structuredDossier + "\n\n" + [
             `📌 Entity: ${entity} (${cleanedQuery.entityType})`,
             `🎯 Intent: ${cleanedQuery.intent}`,
             `🕐 Searched: ${startTime}`,
