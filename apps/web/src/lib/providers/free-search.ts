@@ -14,22 +14,6 @@ export interface SearchResult {
 
 const T = (ms: number) => AbortSignal.timeout(ms);
 
-// ── HTML cleaning ─────────────────────────────────────────────
-function __cleanText(raw: string): string {
-  return raw
-    // Decode common HTML entities
-    .replace(/&lt;/g,  "<")
-    .replace(/&gt;/g,  ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g,'"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g," ")
-    // Strip all HTML tags (including the decoded ones)
-    .replace(/<[^>]+>/g, " ")
-    // Collapse whitespace
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 
 const H = { "User-Agent": "CCJ-Research/1.0", "Accept": "application/json" };
