@@ -240,6 +240,88 @@ Return ONLY this JSON structure (no markdown fences):
   ]
 }`;
 
+
+// ── Structured research analysis types ───────────────────────
+
+export interface StructuredAnalysis {
+  dashboard_result: {
+    definition:        string;
+    core_conclusion:   string;
+    summary_narrative: string;
+  };
+  extracted_claims: Array<{
+    claim:       string;
+    source_name: string;
+    verdict:     "Supported" | "Contradicted" | "Unverified" | "Disputed";
+  }>;
+  timeline_events: Array<{
+    date:   string;
+    event:  string;
+    source: string;
+  }>;
+  key_entities: Array<{
+    name: string;
+    role: string;
+    type: "person" | "organisation" | "place" | "concept";
+  }>;
+}
+
+const STRUCTURED_SYSTEM_PROMPT = `You are an expert investigative researcher and analyst.
+Your task is to analyse the provided source texts and synthesise a highly structured, objective report.
+
+RULES:
+- Do NOT output generic metadata like "This is a topic identified through OSINT".
+- Read the actual content of the sources and extract real arguments, evidence, and events.
+- Decode all HTML entities in titles (&amp; → &, &#39; → ', &lt; → <, &gt; → >).
+- Be factual and neutral. Present multiple viewpoints when they exist.
+- RESPOND ONLY with valid JSON — no markdown, no preamble, no explanation.`;
+
+const STRUCTURED_USER_PROMPT = (
+  topic: string,
+  intent: string,
+  keyFacts: string[],
+  sourceTitles: string[]
+) => `Analyse this research topic and sources:
+
+TOPIC: "${topic}"
+USER INTENT: ${intent}
+
+SOURCE HEADLINES:
+${sourceTitles.slice(0, 10).map((t, i) => `${i+1}. ${t}`).join("\n")}
+
+KEY FACTS EXTRACTED:
+${keyFacts.slice(0, 8).map((f, i) => `${i+1}. ${f}`).join("\n")}
+
+Return ONLY this JSON structure (no markdown fences):
+{
+  "dashboard_result": {
+    "definition": "Clear 2-sentence explanation of what this topic is.",
+    "core_conclusion": "Direct answer to the user's question based on available evidence.",
+    "summary_narrative": "Cohesive 3-4 sentence paragraph synthesising the different viewpoints found in the sources, citing specific articles or scholars."
+  },
+  "extracted_claims": [
+    {
+      "claim": "Specific claim found in the sources",
+      "source_name": "Name of the article or scholar making this claim",
+      "verdict": "Supported | Contradicted | Unverified | Disputed"
+    }
+  ],
+  "timeline_events": [
+    {
+      "date": "YYYY-MM-DD or YYYY-MM or YYYY",
+      "event": "Description of event or publication",
+      "source": "Where this was found"
+    }
+  ],
+  "key_entities": [
+    {
+      "name": "Entity name",
+      "role": "Their role or significance to this topic",
+      "type": "person | organisation | place | concept"
+    }
+  ]
+}`;
+
 export async function generateTopicSummary(
   topic:        string,
   keyFacts:     string[],
