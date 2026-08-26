@@ -29,6 +29,8 @@ import { loadMemory, saveMemory, buildMemoryPrompt } from "@/lib/memory-engine";
 import type { SocialMediaAnalysis } from "@/lib/agents/social-media-agent";
 import type { NewsGovtAnalysis }    from "@/lib/agents/news-govt-agent";
 import type { FactCheckResult }     from "@/lib/agents/fact-checker-agent";
+import { generateTopicSummary } from "@/lib/providers/ai";
+
 
 import {
   projects, researchRuns, sources,
