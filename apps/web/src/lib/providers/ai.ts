@@ -158,61 +158,137 @@ Return JSON array of claim strings only:
  * Generate a concise topic summary — "what is this and why does it matter?"
  * Used in the dossier to give users a clear overview before diving into sources.
  */
-export async function generateTopicSummary(
+
+// ── Structured research analysis types ───────────────────────
+
+export interface StructuredAnalysis {
+  dashboard_result: {
+    definition:        string;
+    core_conclusion:   string;
+    summary_narrative: string;
+  };
+  extracted_claims: Array<{
+    claim:       string;
+    source_name: string;
+    verdict:     "Supported" | "Contradicted" | "Unverified" | "Disputed";
+  }>;
+  timeline_events: Array<{
+    date:   string;
+    event:  string;
+    source: string;
+  }>;
+  key_entities: Array<{
+    name: string;
+    role: string;
+    type: "person" | "organisation" | "place" | "concept";
+  }>;
+}
+
+const STRUCTURED_SYSTEM_PROMPT = `You are an expert investigative researcher and analyst.
+Your task is to analyse the provided source texts and synthesise a highly structured, objective report.
+
+RULES:
+- Do NOT output generic metadata like "This is a topic identified through OSINT".
+- Read the actual content of the sources and extract real arguments, evidence, and events.
+- Decode all HTML entities in titles (&amp; → &, &#39; → ', &lt; → <, &gt; → >).
+- Be factual and neutral. Present multiple viewpoints when they exist.
+- RESPOND ONLY with valid JSON — no markdown, no preamble, no explanation.`;
+
+const STRUCTURED_USER_PROMPT = (
   topic: string,
+  intent: string,
   keyFacts: string[],
+  sourceTitles: string[]
+) => `Analyse this research topic and sources:
+
+TOPIC: "${topic}"
+USER INTENT: ${intent}
+
+SOURCE HEADLINES:
+${sourceTitles.slice(0, 10).map((t, i) => `${i+1}. ${t}`).join("\n")}
+
+KEY FACTS EXTRACTED:
+${keyFacts.slice(0, 8).map((f, i) => `${i+1}. ${f}`).join("\n")}
+
+Return ONLY this JSON structure (no markdown fences):
+{
+  "dashboard_result": {
+    "definition": "Clear 2-sentence explanation of what this topic is.",
+    "core_conclusion": "Direct answer to the user's question based on available evidence.",
+    "summary_narrative": "Cohesive 3-4 sentence paragraph synthesising the different viewpoints found in the sources, citing specific articles or scholars."
+  },
+  "extracted_claims": [
+    {
+      "claim": "Specific claim found in the sources",
+      "source_name": "Name of the article or scholar making this claim",
+      "verdict": "Supported | Contradicted | Unverified | Disputed"
+    }
+  ],
+  "timeline_events": [
+    {
+      "date": "YYYY-MM-DD or YYYY-MM or YYYY",
+      "event": "Description of event or publication",
+      "source": "Where this was found"
+    }
+  ],
+  "key_entities": [
+    {
+      "name": "Entity name",
+      "role": "Their role or significance to this topic",
+      "type": "person | organisation | place | concept"
+    }
+  ]
+}`;
+
+export async function generateTopicSummary(
+  topic:        string,
+  keyFacts:     string[],
   sourceTitles: string[],
-  intent: string
+  intent:       string
 ): Promise<string> {
+  // Returns raw JSON string — caller stores as-is, UI parses it
   const GROQ_KEY   = process.env["GROQ_API_KEY"];
   const GEMINI_KEY = process.env["GEMINI_API_KEY"];
+  const prompt     = STRUCTURED_USER_PROMPT(topic, intent, keyFacts, sourceTitles);
 
-  const prompt = `
-You are an OSINT analyst. Write a clear, factual 3-4 sentence summary answering:
-1. What is "${topic}"?
-2. Who is involved (people, organisations)?
-3. What is the stated purpose/goal?
-4. Which news outlets have reported on this?
-
-Use ONLY information from these sources — do not add anything not present:
-Intent: ${intent}
-Key facts found: ${keyFacts.slice(0, 8).join("; ")}
-Source headlines: ${sourceTitles.slice(0, 6).join(" | ")}
-
-Write in English. Be precise. No bullet points. Plain paragraph only.`;
-
-  async function groq(): Promise<string> {
+  const callGroq = async (): Promise<string> => {
     if (!GROQ_KEY) throw new Error("no-groq");
     const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
+      method:  "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.2, max_tokens: 250,
+        model:           "llama-3.3-70b-versatile",
+        temperature:     0.15,
+        max_tokens:      1200,
+        response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a concise OSINT research summariser." },
+          { role: "system", content: STRUCTURED_SYSTEM_PROMPT },
           { role: "user",   content: prompt },
         ],
       }),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(20000),
     });
     if (!r.ok) throw new Error(`Groq ${r.status}`);
     const d = await r.json() as { choices?: Array<{ message?: { content?: string } }> };
     return d.choices?.[0]?.message?.content?.trim() ?? "";
-  }
+  };
 
-  async function gemini(): Promise<string> {
+  const callGemini = async (): Promise<string> => {
     if (!GEMINI_KEY) throw new Error("no-gemini");
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
       {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 250 },
+          contents: [{ parts: [{ text: `${STRUCTURED_SYSTEM_PROMPT}\n\n${prompt}` }] }],
+          generationConfig: {
+            temperature:      0.15,
+            maxOutputTokens:  1200,
+            responseMimeType: "application/json",
+          },
         }),
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(20000),
       }
     );
     if (!r.ok) throw new Error(`Gemini ${r.status}`);
@@ -220,17 +296,32 @@ Write in English. Be precise. No bullet points. Plain paragraph only.`;
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
     };
     return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-  }
+  };
 
-  for (const fn of [groq, gemini]) {
+  for (const fn of [callGroq, callGemini]) {
     try {
-      const s = await fn();
-      if (s && s.length > 50) return s;
+      const raw = await fn();
+      if (raw && raw.length > 50) {
+        // Validate it parses as JSON
+        JSON.parse(raw);
+        return raw;
+      }
     } catch { continue; }
   }
 
-  // Fallback rule-based summary
-  return `${topic} is a topic identified through OSINT research with intent: ${intent}. `
-    + `${sourceTitles.slice(0, 3).join(", ")} have reported on this. `
-    + `${keyFacts[0] ?? "Further research is needed to verify claims."}`;
+  // Fallback: rule-based structured JSON
+  return JSON.stringify({
+    dashboard_result: {
+      definition:        `${topic} is the subject of this research.`,
+      core_conclusion:   `Based on available sources, this topic requires further investigation. ${keyFacts[0] ?? ""}`,
+      summary_narrative: sourceTitles.slice(0, 3).join(". ") + ". Manual review of sources recommended.",
+    },
+    extracted_claims: sourceTitles.slice(0, 4).map(t => ({
+      claim:       t,
+      source_name: t.split(" - ").pop() ?? "Unknown source",
+      verdict:     "Unverified" as const,
+    })),
+    timeline_events: [],
+    key_entities:    [],
+  } as StructuredAnalysis);
 }

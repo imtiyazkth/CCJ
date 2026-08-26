@@ -295,6 +295,42 @@ export async function POST(req: NextRequest, { params }: Params) {
         ).catch(() => newsAnalysis.summary);
 
         // ── Dossier card ──────────────────────────────────────
+        // Build structured dossier for UI rendering
+        let parsedAnalysis: Record<string, unknown> = {};
+        try { parsedAnalysis = JSON.parse(topicSummary) as Record<string, unknown>; }
+        catch { parsedAnalysis = {}; }
+
+        const structuredDossier = JSON.stringify({
+          meta: {
+            entity,
+            entityType:  cleanedQuery.entityType,
+            intent:      cleanedQuery.intent,
+            searchedAt:  startTime,
+            completedAt: completedAt.toISOString(),
+            aiEngine:    aiMode,
+            runNumber:   priorMemory ? priorMemory.runCount + 1 : 1,
+            stats: {
+              sources:  savedSrcIds.length,
+              evidence: savedEvIds.length,
+              claims:   savedClIds.length,
+              verified: factCheck.claims.filter((c: { status: string }) => c.status === "verified").length,
+              disputed: factCheck.claims.filter((c: { status: string }) => c.status === "disputed").length,
+              reliability: factCheck.overallReliability,
+            },
+            social: { sentiment: socialAnalysis.sentiment, botRisk: socialAnalysis.botRisk },
+            news:   { officialStatements: newsAnalysis.officialStatements.length },
+          },
+          analysis: parsedAnalysis,
+          sourceTitles: allData.slice(0, 10).map((r: { source: string; title: string }) => ({
+            source: r.source, title: r.title,
+          })),
+          factCheck: {
+            overallReliability: factCheck.overallReliability,
+            contradictions:     factCheck.contradictions,
+            missingEvidence:    factCheck.missingEvidence,
+          },
+        });
+
         await db.insert(dossierCards).values({
           projectId,
           researchRunId: runId,
