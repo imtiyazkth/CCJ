@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ccj/types": "workspace:*",
@@ -18,7 +19,8 @@
     "react-dom": "^19.0.0",
     "drizzle-orm": "^0.38.3",
     "postgres": "^3.4.5",
-    "@ccj/db": "workspace:*"
+    "@ccj/db": "workspace:*",
+    "youtube-transcript": "^1.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
@@ -27,6 +29,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

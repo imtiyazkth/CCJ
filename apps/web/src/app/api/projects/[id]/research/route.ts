@@ -29,7 +29,9 @@ import { loadMemory, saveMemory, buildMemoryPrompt } from "@/lib/memory-engine";
 import type { SocialMediaAnalysis } from "@/lib/agents/social-media-agent";
 import type { NewsGovtAnalysis }    from "@/lib/agents/news-govt-agent";
 import type { FactCheckResult }     from "@/lib/agents/fact-checker-agent";
-import { generateTopicSummary } from "@/lib/providers/ai";
+import { generateTopicSummary, verifyClaimsAgainstSources } from "@/lib/providers/ai";
+import { ingestAllYoutubeVideos } from "@/lib/youtube/ingest";
+import type { YoutubeIngestResult } from "@/lib/youtube/ingest";
 
 
 import {
@@ -136,6 +138,25 @@ export async function POST(req: NextRequest, { params }: Params) {
           console.log(`[Memory] Loaded ${priorMemory.runCount} prior runs for "${entity}"`);
         }
 
+        // ── Module 2a: YouTube ingestion (additive) ──────────
+        // If the topic contains one or more YouTube URLs, ingest their
+        // transcripts as first-class sources/evidence/claims BEFORE the
+        // rest of the pipeline runs, so independent web/news sources
+        // gathered next can be used to verify the YouTube-derived claims.
+        // This never blocks or replaces the existing OSINT fetch below —
+        // if no YouTube URL is present, youtubeResults is simply [].
+        let youtubeResults: YoutubeIngestResult[] = [];
+        try {
+          youtubeResults = await ingestAllYoutubeVideos(projectId, runId, rawTopic, language);
+          if (youtubeResults.length > 0) {
+            console.log(`[YouTube] Ingested ${youtubeResults.length} video(s), `
+              + `${youtubeResults.reduce((n, r) => n + r.evidenceIds.length, 0)} evidence, `
+              + `${youtubeResults.reduce((n, r) => n + r.claimIds.length, 0)} claims`);
+          }
+        } catch (e) {
+          console.error("[YouTube] Ingestion step failed (continuing without it):", e);
+        }
+
         // ── Module 2: Fetch all platforms ────────────────────
         await updateStatus(runId, "searching", 20);
         const startTime = new Date().toISOString();
@@ -158,10 +179,42 @@ export async function POST(req: NextRequest, { params }: Params) {
           publishedAt: s.publishedAt ?? s.timestamp ?? null,
           thumbnail:   s.thumbnail,
         }));
-        const allData: FetchResult[] = [...webData, ...normalisedSocial];
+        const allDataRaw: FetchResult[] = [...webData, ...normalisedSocial];
+
+        // ── Relevance filter ──────────────────────────────────
+        // Search APIs (Wikipedia, GDELT, RSS, etc.) can return items that
+        // technically matched a keyword but are topically unrelated to the
+        // actual research subject (e.g. a cricket scorecard matching
+        // "Qatar" because a team name overlapped, or generic health
+        // studies matching a broad thematic keyword). Since every fetched
+        // item was previously saved as a source unconditionally, keep only
+        // items whose title/snippet mention the core entity — OR mention
+        // a specific, distinctive (capitalized, proper-noun-like) term
+        // drawn from the generated keywords, such as "Hamad", "Tamim",
+        // "Jazeera". Generic lowercase thematic words from keywords
+        // (e.g. "policy", "history") are deliberately excluded from this
+        // secondary check so the filter doesn't collapse back into
+        // accepting near-everything.
+        const entityWords = cleanedQuery.cleanEntity
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(w => w.length > 2);
+        const distinctiveKeywordTerms = cleanedQuery.keywords
+          .flatMap(k => k.split(/\s+/))
+          .filter(w => w.length > 3 && /^[A-Z]/.test(w)) // capitalized = likely proper noun
+          .map(w => w.toLowerCase());
+        const relevanceTerms = [...new Set([...entityWords, ...distinctiveKeywordTerms])];
+        const isRelevant = (item: FetchResult): boolean => {
+          if (relevanceTerms.length === 0) return true; // nothing to check against
+          const haystack = `${item.title} ${item.snippet}`.toLowerCase();
+          return relevanceTerms.some(w => haystack.includes(w));
+        };
+        const allData: FetchResult[] = allDataRaw.filter(isRelevant);
+        const filteredOutCount = allDataRaw.length - allData.length;
+
         console.log(`[Fetch] ${allData.length} items from ${
           [...new Set(allData.map(d => d.platform))].join(", ")
-        }`);
+        }${filteredOutCount > 0 ? ` (${filteredOutCount} filtered as off-topic)` : ""}`);
 
         await updateStatus(runId, "fetching", 40, {
           researchPlan: {
@@ -212,10 +265,65 @@ export async function POST(req: NextRequest, { params }: Params) {
 
         await updateStatus(runId, "analysing", 82);
 
+        // ── Module 3a: Independently verify YouTube-derived claims ──
+        // A YouTube transcript claim must never be marked "Supported"
+        // merely for existing — it needs comparison against the
+        // independent web/news sources gathered in Module 2 above.
+        if (youtubeResults.length > 0) {
+          const allYoutubeClaimTexts = youtubeResults.flatMap(r => r.claimTexts);
+          if (allYoutubeClaimTexts.length > 0) {
+            const independentExcerpts = allData
+              .filter(d => d.platform !== "video") // exclude other YouTube results as "independent"
+              .slice(0, 12)
+              .map(d => ({ sourceName: `${d.source} — ${d.title}`, excerpt: d.snippet ?? "" }))
+              .filter(s => s.excerpt.length > 20);
+
+            const verifications = await verifyClaimsAgainstSources(
+              allYoutubeClaimTexts,
+              independentExcerpts
+            ).catch(() => []);
+
+            const verdictToStatus = (v: string) =>
+              v === "Supported"            ? "strongly_correlated" as const :
+              v === "Contradicted"         ? "disputed" as const :
+              v === "Disputed"             ? "disputed" as const :
+              v === "Partially Supported"  ? "strongly_correlated" as const :
+              v === "Opinion"              ? "opinion" as const :
+              "unverified" as const;
+
+            const claimIdByText = new Map<string, string>();
+            for (const r of youtubeResults) {
+              r.claimTexts.forEach((text, i) => {
+                const id = r.claimIds[i];
+                if (id) claimIdByText.set(text, id);
+              });
+            }
+
+            await Promise.all(
+              verifications.map(async (v) => {
+                const claimId = claimIdByText.get(v.claim);
+                if (!claimId) return;
+                await db.update(claims).set({
+                  status: verdictToStatus(v.verdict),
+                  confidence: v.confidence,
+                  reasoningSummary: v.reasoning.slice(0, 500),
+                  whatIsMissing: v.supportingSources.length === 0 && v.contradictingSources.length === 0
+                    ? "No independent source addressed this claim."
+                    : null,
+                  updatedAt: new Date(),
+                }).where(eq(claims.id, claimId)).catch(() => {});
+              })
+            );
+          }
+        }
+
         // ── Save sources, evidence, claims ───────────────────
-        const savedSrcIds: string[] = [];
-        const savedEvIds:  string[] = [];
-        const savedClIds:  string[] = [];
+        // Seed with anything already ingested from YouTube above, so
+        // YouTube-derived sources/evidence/claims appear in the same
+        // dossier stats and card as the rest of this run's research.
+        const savedSrcIds: string[] = youtubeResults.map(r => r.sourceId);
+        const savedEvIds:  string[] = youtubeResults.flatMap(r => r.evidenceIds);
+        const savedClIds:  string[] = youtubeResults.flatMap(r => r.claimIds);
 
         const maxSrc = depth === "quick" ? 8 : depth === "deep" ? 25 : 15;
 
@@ -274,8 +382,12 @@ export async function POST(req: NextRequest, { params }: Params) {
                             : fc.status === "opinion"   ? "opinion"
                             : "unverified",
             confidence:       fc.confidence,
-            reasoningSummary: `${fc.verdict} | Supporting: ${fc.supportingEvidence.join("; ").slice(0, 200)}`,
-            whatIsMissing:    `${factCheck.missingEvidence.join("; ").slice(0, 200)}`,
+            // fc.supportingEvidence/factCheck.missingEvidence are expected
+            // arrays from FactCheckResult, but a malformed/partial AI or
+            // fallback response could omit them — default to [] rather
+            // than crashing the whole pipeline on a missing field.
+            reasoningSummary: `${fc.verdict} | Supporting: ${(fc.supportingEvidence ?? []).join("; ").slice(0, 200)}`,
+            whatIsMissing:    `${(factCheck.missingEvidence ?? []).join("; ").slice(0, 200)}`,
             isDemo:           false,
           }).returning({ id: claims.id }).catch(() => [] as {id:string}[]);
           if (c?.id) savedClIds.push(c.id);

@@ -77,8 +77,17 @@ Return JSON with this exact schema:
     let analysis: SocialMediaAnalysis;
 
     try {
-      const parsed = JSON.parse(raw.replace(/```json\n?|```\n?/g, "").trim()) as SocialMediaAnalysis;
-      analysis = parsed;
+      const parsed = JSON.parse(raw.replace(/```json\n?|```\n?/g, "").trim()) as Partial<SocialMediaAnalysis>;
+      // Defensive normalization — see NewsGovtAgent/FactCheckerAgent for
+      // why: syntactically valid JSON can still omit/mistype fields.
+      analysis = {
+        viralClaims:     Array.isArray(parsed.viralClaims) ? parsed.viralClaims : [],
+        originalSources: Array.isArray(parsed.originalSources) ? parsed.originalSources : [],
+        sentiment:       parsed.sentiment ?? "neutral",
+        botRisk:         parsed.botRisk ?? "low",
+        keyAccounts:     Array.isArray(parsed.keyAccounts) ? parsed.keyAccounts : [],
+        summary:         typeof parsed.summary === "string" ? parsed.summary : `Analysed ${socialItems.length} social media items.`,
+      };
     } catch {
       analysis = {
         viralClaims:     [],
@@ -99,7 +108,7 @@ Return JSON with this exact schema:
         [...new Set(socialItems.map(i => i.platform))].join(", ")
       }`,
       duration:   Date.now() - start,
-      model:      process.env["GROQ_API_KEY"] ? "groq/llama-3.3-70b" : "gemini-1.5-flash",
+      model:      this.lastModelUsed,
     };
   }
 }

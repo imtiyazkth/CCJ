@@ -38,6 +38,27 @@ interface StructuredDossier {
   factCheck?: { overallReliability: string; contradictions: string[]; missingEvidence: string[] };
 }
 
+// ── Creator Script types (mirrors apps/web/src/lib/providers/ai.ts) ──
+type ScriptMode = "short" | "explainer" | "deep_research" | "documentary" | "social_thread";
+type ScriptLanguage = "en" | "hi" | "hinglish";
+interface CreatorScriptSection { heading: string; narration: string; sourceRefs: string[] }
+interface CreatorScript {
+  title: string; hook: string; sections: CreatorScriptSection[];
+  ending: string; disclaimer: string;
+}
+interface ScriptApiResponse { runId: string; mode: ScriptMode; language: ScriptLanguage; script: CreatorScript }
+
+const SCRIPT_MODE_LABELS: Record<ScriptMode, string> = {
+  short: "60-Second Short",
+  explainer: "3–5 Min Explainer",
+  deep_research: "8–15 Min Deep Research",
+  documentary: "15–30 Min Documentary",
+  social_thread: "Social Media Thread",
+};
+const SCRIPT_LANGUAGE_LABELS: Record<ScriptLanguage, string> = {
+  en: "English", hi: "Hindi", hinglish: "Hinglish",
+};
+
 function decode(s: string): string {
   return s.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">")
           .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&nbsp;/g," ");
@@ -71,6 +92,29 @@ export default function DossierPage({ params }: PageProps) {
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
+
+  // ── Creator Script state ──────────────────────────────────
+  const [scriptMode,     setScriptMode]     = useState<ScriptMode>("explainer");
+  const [scriptLanguage, setScriptLanguage] = useState<ScriptLanguage>("en");
+  const [scriptLoading,  setScriptLoading]  = useState(false);
+  const [scriptError,    setScriptError]    = useState<string | null>(null);
+  const [script,         setScript]         = useState<CreatorScript | null>(null);
+
+  async function handleGenerateScript() {
+    setScriptLoading(true);
+    setScriptError(null);
+    setScript(null);
+    const res = await apiFetch<ScriptApiResponse>(`/api/projects/${id}/script`, {
+      method: "POST",
+      body: JSON.stringify({ mode: scriptMode, language: scriptLanguage }),
+    });
+    if (res.data) {
+      setScript(res.data.script);
+    } else {
+      setScriptError(res.error ?? "Failed to generate script.");
+    }
+    setScriptLoading(false);
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -134,6 +178,105 @@ export default function DossierPage({ params }: PageProps) {
         )}
 
         {error && <ErrorBanner message={error} />}
+
+        {/* ── Creator Script Generator ─────────────────────── */}
+        {cards.length > 0 && (
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+              <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                Create Content
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Generate a creator-style script from this research. Unverified and
+                disputed claims stay clearly attributed — never presented as settled fact.
+              </p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex flex-wrap gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Format
+                  </label>
+                  <select
+                    value={scriptMode}
+                    onChange={(e) => setScriptMode(e.target.value as ScriptMode)}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm
+                      text-gray-800 bg-white"
+                  >
+                    {(Object.keys(SCRIPT_MODE_LABELS) as ScriptMode[]).map((m) => (
+                      <option key={m} value={m}>{SCRIPT_MODE_LABELS[m]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Language
+                  </label>
+                  <select
+                    value={scriptLanguage}
+                    onChange={(e) => setScriptLanguage(e.target.value as ScriptLanguage)}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm
+                      text-gray-800 bg-white"
+                  >
+                    {(Object.keys(SCRIPT_LANGUAGE_LABELS) as ScriptLanguage[]).map((l) => (
+                      <option key={l} value={l}>{SCRIPT_LANGUAGE_LABELS[l]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={handleGenerateScript}
+                    disabled={scriptLoading}
+                    className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold
+                      text-white hover:bg-indigo-700 disabled:opacity-50
+                      disabled:cursor-not-allowed transition-colors"
+                  >
+                    {scriptLoading ? "Generating…" : "Generate Script"}
+                  </button>
+                </div>
+              </div>
+
+              {scriptError && <ErrorBanner message={scriptError} />}
+
+              {script && (
+                <div className="mt-4 rounded-xl border border-indigo-200
+                  bg-gradient-to-br from-indigo-50 to-purple-50 p-4 space-y-3">
+                  <h4 className="font-bold text-indigo-900 text-base">
+                    {decode(script.title)}
+                  </h4>
+                  <p className="text-sm text-indigo-800 italic leading-relaxed">
+                    {decode(script.hook)}
+                  </p>
+                  <div className="space-y-3">
+                    {script.sections.map((s, i) => (
+                      <div key={i} className="bg-white rounded-lg border
+                        border-indigo-100 p-3">
+                        <p className="text-xs font-bold text-indigo-700
+                          uppercase tracking-wide mb-1">
+                          {decode(s.heading)}
+                        </p>
+                        <p className="text-sm text-gray-800 leading-relaxed
+                          whitespace-pre-wrap">
+                          {decode(s.narration)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-700 italic border-t
+                    border-indigo-200 pt-3">
+                    {decode(script.ending)}
+                  </p>
+                  {script.disclaimer && (
+                    <p className="text-xs text-amber-700 bg-amber-50
+                      border border-amber-200 rounded-lg px-3 py-2">
+                      ⚠️ {decode(script.disclaimer)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {cards.length === 0 ? (
           <EmptyState icon="📁" title="No dossier yet"
