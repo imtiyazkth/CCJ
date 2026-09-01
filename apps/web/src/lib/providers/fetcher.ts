@@ -5,6 +5,8 @@
  * All zero-cost. Falls back gracefully on timeout/error.
  */
 
+import { runAllSources } from "./free-search";
+
 export interface FetchResult {
   title:        string;
   source:       string;
@@ -401,18 +403,49 @@ export async function fetchMultiPlatformData(
 ): Promise<FetchResult[]> {
   const n = depth === "quick" ? 4 : depth === "deep" ? 10 : 6;
 
-  const [wiki, twitter, ddg, rss, gdelt, academic] = await Promise.allSettled([
+  const [wiki, twitter, ddg, rss, gdelt, academic, freeSources] = await Promise.allSettled([
     fetchWikipedia(entity, language),
     fetchSotweTwitter(entity),
     fetchDuckDuckGo(entity),
     fetchRSSHub(entity, intent),
     fetchGDELT(entity, n),
     fetchOpenAlex(entity, Math.min(n, 4)),
+    // Additional free/keyed sources: Brave Search, Guardian, NewsAPI,
+    // Reddit, HackerNews — previously implemented in free-search.ts but
+    // never actually wired into the research pipeline. Adding them here
+    // gives the pipeline real independent web/news sources beyond the
+    // narrower RSS/GDELT/Wikipedia set above, which matters especially
+    // for verifying YouTube-derived claims against independent evidence.
+    runAllSources(entity, language, depth),
   ]);
 
   const all: FetchResult[] = [];
   for (const r of [wiki, twitter, ddg, rss, gdelt, academic]) {
     if (r.status === "fulfilled") all.push(...r.value);
+  }
+
+  if (freeSources.status === "fulfilled") {
+    const SOURCE_CREDIBILITY: Record<string, number> = {
+      "Brave Search": 0.60,
+      "HackerNews":   0.55,
+      "Reddit":       0.45,
+    };
+    const creditFor = (source: string): number => {
+      if (source.startsWith("NewsAPI")) return 0.72;
+      if (source.startsWith("The Guardian") || source.includes("Guardian")) return 0.85;
+      return SOURCE_CREDIBILITY[source] ?? 0.55;
+    };
+    all.push(...freeSources.value.results.map((r): FetchResult => ({
+      title:       r.title,
+      source:      r.source,
+      platform:    r.source.toLowerCase().includes("news") || r.source.includes("Guardian") ? "news" : "web",
+      url:         r.url,
+      snippet:     r.snippet,
+      timestamp:   r.publishedAt,
+      credibility: creditFor(r.source),
+      language:    r.language,
+      publishedAt: r.publishedAt,
+    })));
   }
 
   // Deduplicate by URL

@@ -59,6 +59,66 @@ export async function searchYouTube(q: string, n = 6): Promise<SearchResult[]> {
   } catch { return []; }
 }
 
+// ── YouTube Data API v3: metadata for a SPECIFIC known video ──
+// Used by the YouTube ingestion pipeline (apps/web/src/lib/youtube/ingest.ts)
+// to fill in channel/publishedAt/thumbnail/duration once a video has
+// already been identified by URL — distinct from searchYouTube() above,
+// which discovers videos by keyword search.
+export interface YoutubeVideoMetadata {
+  title:           string | null;
+  channel:         string | null;
+  publishedAt:     string | null; // ISO-8601
+  thumbnailUrl:    string | null;
+  durationSeconds: number | null;
+}
+
+/** Parses an ISO-8601 duration (e.g. "PT4M13S") into seconds. */
+function parseIso8601Duration(iso: string): number | null {
+  const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return null;
+  const h = parseInt(m[1] ?? "0", 10);
+  const min = parseInt(m[2] ?? "0", 10);
+  const s = parseInt(m[3] ?? "0", 10);
+  return h * 3600 + min * 60 + s;
+}
+
+export async function fetchYoutubeVideoMetadata(videoId: string): Promise<YoutubeVideoMetadata> {
+  const empty: YoutubeVideoMetadata = {
+    title: null, channel: null, publishedAt: null, thumbnailUrl: null, durationSeconds: null,
+  };
+  const key = process.env["YOUTUBE_API_KEY"];
+  if (!key) return empty; // no key configured — never invent metadata
+
+  try {
+    const p = new URLSearchParams({ part: "snippet,contentDetails", id: videoId, key });
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?${p}`, {
+      headers: H, signal: T(5000),
+    });
+    if (!r.ok) return empty;
+    const d = await r.json() as {
+      items?: Array<{
+        snippet?: {
+          title?: string; channelTitle?: string; publishedAt?: string;
+          thumbnails?: { high?: { url?: string }; default?: { url?: string } };
+        };
+        contentDetails?: { duration?: string };
+      }>;
+    };
+    const item = d.items?.[0];
+    if (!item) return empty; // video not found/unlisted/deleted — never invent
+
+    return {
+      title:           item.snippet?.title ?? null,
+      channel:         item.snippet?.channelTitle ?? null,
+      publishedAt:     item.snippet?.publishedAt ?? null,
+      thumbnailUrl:    item.snippet?.thumbnails?.high?.url ?? item.snippet?.thumbnails?.default?.url ?? null,
+      durationSeconds: item.contentDetails?.duration ? parseIso8601Duration(item.contentDetails.duration) : null,
+    };
+  } catch {
+    return empty;
+  }
+}
+
 // ── Social profile search via Brave (site: operators) ────────
 // Uses existing BRAVE_SEARCH_KEY. Falls back to DDG site: search.
 async function searchSiteViaBrave(
