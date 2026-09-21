@@ -1,0 +1,79 @@
+{
+  "_comment": "Curated links directory for the Explore page. Lives in the repo (GitHub) — no database needed. Edit this file directly, commit, and it ships on the next deploy. Every entry: name, url, description, official (true = government/primary source, false = third-party), tag (Free/Freemium/Paid).",
+
+  "government": {
+    "label": "Government",
+    "countries": {
+      "india": {
+        "label": "India",
+        "entries": [
+          { "name": "India.gov.in", "url": "https://www.india.gov.in", "description": "National Portal of India — official gateway to government services and information.", "official": true },
+          { "name": "MyGov India", "url": "https://www.mygov.in", "description": "Citizen engagement platform for government schemes and initiatives.", "official": true },
+          { "name": "Digital India", "url": "https://www.digitalindia.gov.in", "description": "Digital India initiative — programs, e-services, and digital governance.", "official": true }
+        ]
+      },
+      "qatar": {
+        "label": "Qatar",
+        "entries": [
+          { "name": "Hukoomi", "url": "https://hukoomi.gov.qa", "description": "Qatar's official e-government portal — services, ministries, and public information.", "official": true }
+        ]
+      }
+    }
+  },
+
+  "law": {
+    "label": "Law & Constitution",
+    "countries": {
+      "india": {
+        "label": "India",
+        "entries": [
+          { "name": "India Code", "url": "https://www.indiacode.nic.in", "description": "Official repository of all Central and State Acts of India.", "official": true },
+          { "name": "Supreme Court of India", "url": "https://www.sci.gov.in", "description": "Official Supreme Court website — judgments, cause lists, case status.", "official": true },
+          { "name": "Constitution of India (Legislative.gov.in)", "url": "https://legislative.gov.in/constitution-of-india", "description": "Official full text of the Constitution of India.", "official": true }
+        ]
+      }
+    }
+  },
+
+  "ai-tools": {
+    "label": "AI Tools",
+    "entries": [
+      { "name": "Claude", "url": "https://claude.ai", "description": "Anthropic's AI assistant for writing, research, and coding.", "official": true, "tag": "Freemium" },
+      { "name": "ChatGPT", "url": "https://chat.openai.com", "description": "OpenAI's conversational AI assistant.", "official": true, "tag": "Freemium" },
+      { "name": "Perplexity", "url": "https://www.perplexity.ai", "description": "AI-powered answer engine with cited sources.", "official": true, "tag": "Freemium" }
+    ]
+  },
+
+  "video-tools": {
+    "label": "Video",
+    "entries": [
+      { "name": "CapCut", "url": "https://www.capcut.com", "description": "Free video editor for mobile and desktop, popular for Shorts/Reels.", "official": true, "tag": "Freemium" },
+      { "name": "DaVinci Resolve", "url": "https://www.blackmagicdesign.com/products/davinciresolve", "description": "Professional-grade video editing and color grading, free tier available.", "official": true, "tag": "Freemium" }
+    ]
+  },
+
+  "image-tools": {
+    "label": "Image",
+    "entries": [
+      { "name": "remove.bg", "url": "https://www.remove.bg", "description": "Instant background remover.", "official": true, "tag": "Freemium" },
+      { "name": "Photopea", "url": "https://www.photopea.com", "description": "Free browser-based Photoshop-like image editor.", "official": true, "tag": "Free" }
+    ]
+  },
+
+  "website-builders": {
+    "label": "Website & Hosting",
+    "entries": [
+      { "name": "Vercel", "url": "https://vercel.com", "description": "Deploy and host web apps, generous free tier.", "official": true, "tag": "Freemium" },
+      { "name": "GitHub Pages", "url": "https://pages.github.com", "description": "Free static site hosting directly from a GitHub repo.", "official": true, "tag": "Free" },
+      { "name": "Netlify", "url": "https://www.netlify.com", "description": "Deploy and host web apps with CI/CD, free tier available.", "official": true, "tag": "Freemium" }
+    ]
+  },
+
+  "my-projects": {
+    "label": "My Projects",
+    "entries": [
+      { "name": "Teleprompter", "url": "https://imtiyazkth.github.io/Teleprompter/", "description": "Professional browser-based teleprompter for recording videos and speeches.", "official": true, "tag": "My Project" },
+      { "name": "QRaksha", "url": "https://qraksha-india.web.app", "description": "Privacy-first QR code scam detection web app for Indian users.", "official": true, "tag": "My Project" }
+    ]
+  }
+}
