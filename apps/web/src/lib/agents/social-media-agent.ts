@@ -35,7 +35,7 @@ Be precise. Flag unverified claims clearly.
   async run(data: FetchResult[]): Promise<AgentResult> {
     const start = Date.now();
     const socialItems = data.filter(d =>
-      ["twitter","reddit","youtube","instagram","facebook","threads"].includes(d.platform)
+      ["twitter","reddit","youtube","instagram","facebook","threads","linkedin","github","bluesky"].includes(d.platform)
     );
 
     if (socialItems.length === 0) {

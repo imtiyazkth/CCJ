@@ -226,6 +226,29 @@ async function fetchRSSHub(entity: string, intent: string): Promise<FetchResult[
       label:       "Reddit (RSSHub)",
       credibility: 0.50,
     },
+    // Direct major-outlet feeds, filtered by topic via Google News site:
+    // queries — more reliable than hardcoding each outlet's own RSS path
+    // (those move/break independently and are often geo/CDN-blocked),
+    // while still reusing the same parser and giving named-outlet
+    // attribution instead of an undifferentiated "Google News" bucket.
+    {
+      url:         `https://news.google.com/rss/search?q=${encoded}+site:reuters.com+OR+site:apnews.com&hl=en-US&gl=US&ceid=US:en`,
+      label:       "Reuters/AP",
+      credibility: 0.85,
+    },
+    {
+      url:         `https://news.google.com/rss/search?q=${encoded}+site:bbc.com+OR+site:aljazeera.com&hl=en-GB&gl=GB&ceid=GB:en`,
+      label:       "BBC/Al Jazeera",
+      credibility: 0.80,
+    },
+    // Direct BBC World feed — stable, well-documented static RSS URL —
+    // as a true direct feed rather than a Google News re-query, so
+    // this source isn't wholly dependent on Google News indexing.
+    {
+      url:         `https://feeds.bbci.co.uk/news/world/rss.xml`,
+      label:       "BBC World (direct)",
+      credibility: 0.80,
+    },
   ];
 
   if (intent === "legal" || intent === "political") {
@@ -233,6 +256,11 @@ async function fetchRSSHub(entity: string, intent: string): Promise<FetchResult[
       url:         `https://news.google.com/rss/search?q=${encoded}+site:ndtv.com+OR+site:thehindu.com&hl=en-IN`,
       label:       "Indian News (Legal/Political)",
       credibility: 0.78,
+    });
+    feeds.push({
+      url:         `https://news.google.com/rss/search?q=${encoded}+site:dawn.com+OR+site:tribune.com.pk&hl=en-PK&gl=PK&ceid=PK:en`,
+      label:       "Pakistani News (Legal/Political)",
+      credibility: 0.75,
     });
   }
 
@@ -245,8 +273,18 @@ async function fetchRSSHub(entity: string, intent: string): Promise<FetchResult[
       if (!r.ok) continue;
 
       const xml = await r.text();
-      // Parse RSS items without a library
-      const items = parseRSSXML(xml, feed.label, feed.credibility);
+      // Parse RSS/Atom items without a library
+      let items = parseRSSXML(xml, feed.label, feed.credibility);
+      // The direct BBC World feed is a whole-section feed, not a topic
+      // query — filter to items that actually mention the entity before
+      // they reach downstream agents, same as every query-based feed
+      // above already does implicitly via its search term.
+      if (feed.label === "BBC World (direct)") {
+        const needle = entity.toLowerCase();
+        items = items.filter(i =>
+          i.title.toLowerCase().includes(needle) || i.snippet.toLowerCase().includes(needle)
+        );
+      }
       results.push(...items.slice(0, 6));
     } catch { continue; }
   }
@@ -256,9 +294,10 @@ async function fetchRSSHub(entity: string, intent: string): Promise<FetchResult[
 
 function parseRSSXML(xml: string, label: string, credibility: number): FetchResult[] {
   const items: FetchResult[] = [];
+
+  // RSS 2.0: <item>...</item>
   const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
   let match: RegExpExecArray | null;
-
   while ((match = itemRegex.exec(xml)) !== null && items.length < 8) {
     const block = match[1] ?? "";
     const title   = stripCDATA(extractTag(block, "title"));
@@ -279,6 +318,36 @@ function parseRSSXML(xml: string, label: string, credibility: number): FetchResu
       });
     }
   }
+
+  // Atom 1.0: <entry>...</entry> — used by BBC and several other outlets.
+  // <link> is usually a self-closing tag with an href attribute rather
+  // than RSS's <link>text</link>, and the timestamp tag is <updated>/
+  // <published> instead of <pubDate>.
+  if (items.length === 0) {
+    const entryRegex = /<entry[^>]*>([\s\S]*?)<\/entry>/gi;
+    while ((match = entryRegex.exec(xml)) !== null && items.length < 8) {
+      const block = match[1] ?? "";
+      const title = stripCDATA(extractTag(block, "title"));
+      const hrefMatch = /<link[^>]*href="([^"]+)"[^>]*\/?>/i.exec(block);
+      const link = hrefMatch?.[1] ?? extractTag(block, "id");
+      const desc = stripCDATA(stripHTML(extractTag(block, "summary") || extractTag(block, "content")));
+      const pubDate = extractTag(block, "published") || extractTag(block, "updated");
+
+      if (title && link) {
+        items.push({
+          title:       title.slice(0, 200),
+          source:      label,
+          platform:    "rss",
+          url:         link.trim(),
+          snippet:     cleanSnippet(desc).slice(0, 400),
+          timestamp:   pubDate || null,
+          credibility,
+          language:    "en",
+        });
+      }
+    }
+  }
+
   return items;
 }
 
