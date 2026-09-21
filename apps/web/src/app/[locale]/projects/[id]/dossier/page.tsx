@@ -26,6 +26,18 @@ interface KeyEntity     { name: string; role: string; type: string }
 interface DashboardResult {
   definition: string; core_conclusion: string; summary_narrative: string;
 }
+interface QuestionSynthesis {
+  dimensionCoverage: Array<{ dimension: string; addressed: boolean; summary: string }>;
+  keyFindings: string[];
+  verifiedFacts: string[];
+  disputedPoints: string[];
+  unknowns: string[];
+  qualityCheck: {
+    passed: boolean; relevanceScore: number; issues: string[];
+    hallucinationRisk: string; recommendation: string;
+  } | null;
+}
+
 interface StructuredDossier {
   meta?:     DossierMeta;
   analysis?: {
@@ -33,6 +45,7 @@ interface StructuredDossier {
     extracted_claims?: ExtractedClaim[];
     timeline_events?:  TimelineEvent[];
     key_entities?:     KeyEntity[];
+    question_synthesis?: QuestionSynthesis;
   };
   sourceTitles?: Array<{ source: string; title: string }>;
   factCheck?: { overallReliability: string; contradictions: string[]; missingEvidence: string[] };
@@ -153,23 +166,28 @@ export default function DossierPage({ params }: PageProps) {
     <ProjectLayout projectId={id} projectTitle={project.title} locale={locale}>
       <div className="space-y-5">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Research Dossier</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <h2 className="ui-heading-lg text-gray-900">Research Dossier</h2>
+          <p className="ui-body text-xs text-gray-500 mt-0.5">
             Structured intelligence report — every claim links to its evidence chain.
           </p>
         </div>
 
         {uniqueSources.length > 0 && (
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+          // §12 Materials & depth: a bigger surface should read as thicker —
+          // a soft shadow gives this box weight instead of a flat fill+border
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 shadow-sm">
             <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">
               Referenced Sources ({sources.length} total)
             </h3>
             <div className="flex flex-wrap gap-2">
               {uniqueSources.map(src => (
+                // §1 Response: feedback on press, not just hover — matters
+                // on touch devices where hover never fires at all
                 <a key={src.id} href={src.url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full bg-white
+                  className="ui-pressable inline-flex items-center gap-1 rounded-full bg-white
                     border border-blue-200 px-3 py-1 text-xs text-blue-700 font-medium
-                    hover:bg-blue-100 transition-colors">
+                    shadow-sm hover:bg-blue-100 hover:border-blue-300 hover:shadow
+                    transition-colors">
                   {src.domain}
                 </a>
               ))}
@@ -183,10 +201,10 @@ export default function DossierPage({ params }: PageProps) {
         {cards.length > 0 && (
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-              <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+              <h3 className="ui-heading-sm text-xs text-gray-700 uppercase tracking-wider">
                 Create Content
               </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="ui-body text-xs text-gray-500 mt-0.5">
                 Generate a creator-style script from this research. Unverified and
                 disputed claims stay clearly attributed — never presented as settled fact.
               </p>
@@ -197,11 +215,15 @@ export default function DossierPage({ params }: PageProps) {
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Format
                   </label>
+                  {/* §1 Response: focus/active states must be instant, not the
+                      browser's bare default outline — and touch targets need
+                      real height (44px+) so tap doesn't feel imprecise */}
                   <select
                     value={scriptMode}
                     onChange={(e) => setScriptMode(e.target.value as ScriptMode)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm
-                      text-gray-800 bg-white"
+                    className="ui-pressable rounded-lg border border-gray-300 px-3 py-2 text-sm
+                      text-gray-800 bg-white min-h-[44px]
+                      focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   >
                     {(Object.keys(SCRIPT_MODE_LABELS) as ScriptMode[]).map((m) => (
                       <option key={m} value={m}>{SCRIPT_MODE_LABELS[m]}</option>
@@ -215,8 +237,9 @@ export default function DossierPage({ params }: PageProps) {
                   <select
                     value={scriptLanguage}
                     onChange={(e) => setScriptLanguage(e.target.value as ScriptLanguage)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm
-                      text-gray-800 bg-white"
+                    className="ui-pressable rounded-lg border border-gray-300 px-3 py-2 text-sm
+                      text-gray-800 bg-white min-h-[44px]
+                      focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   >
                     {(Object.keys(SCRIPT_LANGUAGE_LABELS) as ScriptLanguage[]).map((l) => (
                       <option key={l} value={l}>{SCRIPT_LANGUAGE_LABELS[l]}</option>
@@ -224,12 +247,14 @@ export default function DossierPage({ params }: PageProps) {
                   </select>
                 </div>
                 <div className="flex items-end">
+                  {/* §1 Response + §4 Behavior over animation: press feedback
+                      via ui-pressable's scale(0.97), not just a color swap */}
                   <button
                     onClick={handleGenerateScript}
                     disabled={scriptLoading}
-                    className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold
+                    className="ui-pressable rounded-lg bg-indigo-600 px-4 py-2 min-h-[44px] text-sm font-semibold
                       text-white hover:bg-indigo-700 disabled:opacity-50
-                      disabled:cursor-not-allowed transition-colors"
+                      disabled:cursor-not-allowed disabled:active:scale-100 transition-colors"
                   >
                     {scriptLoading ? "Generating…" : "Generate Script"}
                   </button>
@@ -290,6 +315,7 @@ export default function DossierPage({ params }: PageProps) {
               const claims   = d.analysis?.extracted_claims ?? [];
               const timeline = d.analysis?.timeline_events  ?? [];
               const entities = d.analysis?.key_entities     ?? [];
+              const qs       = d.analysis?.question_synthesis;
               const fc       = d.factCheck;
               const rel      = relColor(meta?.stats?.reliability ?? "low");
 
@@ -575,6 +601,72 @@ export default function DossierPage({ params }: PageProps) {
                   )}
 
                   {idx < cards.length - 1 && <hr className="border-gray-200" />}
+                  {qs && (
+                    <div className="rounded-2xl border border-teal-200 bg-teal-50/50 shadow-sm">
+                      <div className="px-5 py-3 border-b border-teal-200">
+                        <span className="font-bold text-teal-900 text-sm">
+                          Question Coverage
+                        </span>
+                        <p className="text-xs text-teal-700 mt-0.5">
+                          Whether this research actually addressed every part of what you asked.
+                        </p>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        {qs.qualityCheck && qs.qualityCheck.recommendation !== "accept" && (
+                          <div className={`rounded-lg px-3 py-2 text-xs border ${
+                            qs.qualityCheck.recommendation === "regenerate"
+                              ? "bg-red-50 border-red-200 text-red-700"
+                              : "bg-amber-50 border-amber-200 text-amber-700"
+                          }`}>
+                            ⚠ Relevance score: {qs.qualityCheck.relevanceScore}/100.{" "}
+                            {qs.qualityCheck.recommendation === "regenerate"
+                              ? "This answer may not adequately address your question — consider rephrasing or re-running research."
+                              : "This answer may only partially address your question."}
+                            {qs.qualityCheck.issues.length > 0 && (
+                              <ul className="mt-1 list-disc list-inside">
+                                {qs.qualityCheck.issues.slice(0, 3).map((issue, i) => (
+                                  <li key={i}>{decode(issue)}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+
+                        {qs.dimensionCoverage.length > 0 && (
+                          <div>
+                            <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">
+                              Dimensions of your question
+                            </p>
+                            <div className="space-y-1.5">
+                              {qs.dimensionCoverage.map((dim, i) => (
+                                <div key={i} className="flex items-start gap-2 text-sm">
+                                  <span>{dim.addressed ? "✅" : "❌"}</span>
+                                  <div>
+                                    <span className="font-medium text-gray-800">{decode(dim.dimension)}</span>
+                                    {dim.summary && (
+                                      <span className="text-gray-600"> — {decode(dim.summary)}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {qs.unknowns.length > 0 && (
+                          <div className="rounded-lg bg-white border border-teal-100 p-3">
+                            <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-1">
+                              What remains unanswered
+                            </p>
+                            <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
+                              {qs.unknowns.map((u, i) => <li key={i}>{decode(u)}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               );
             })}
