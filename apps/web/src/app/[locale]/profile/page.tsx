@@ -47,6 +47,14 @@ export default function ProfilePage({ params }: { params: Promise<{ locale: stri
             text-sm font-semibold text-red-700 hover:bg-red-100">
           Sign Out
         </button>
+        <div className="flex gap-4 pt-2">
+          <Link href={`/${locale}/privacy`} className="ui-pressable text-xs text-gray-500 hover:text-gray-800">
+            Privacy Policy
+          </Link>
+          <Link href={`/${locale}/terms`} className="ui-pressable text-xs text-gray-500 hover:text-gray-800">
+            Terms &amp; Conditions
+          </Link>
+        </div>
       </main>
     </div>
   );
