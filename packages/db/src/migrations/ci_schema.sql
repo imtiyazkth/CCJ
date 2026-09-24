@@ -165,8 +165,13 @@ CREATE TABLE IF NOT EXISTS public.sources (
   raw_artifact_id      TEXT,
   extracted_artifact_id TEXT,
   is_demo              BOOLEAN NOT NULL DEFAULT false,
+  -- Added in 0002_youtube_ingestion: nullable YouTube-specific metadata.
+  youtube_meta         JSONB,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS sources_youtube_video_id_idx
+  ON public.sources (((youtube_meta ->> 'videoId')));
 
 -- evidence
 CREATE TABLE IF NOT EXISTS public.evidence (
@@ -176,6 +181,10 @@ CREATE TABLE IF NOT EXISTS public.evidence (
   section             TEXT,
   quote               TEXT NOT NULL,
   coordinates         JSONB,
+  -- Added in 0002_youtube_ingestion: nullable timestamp range (seconds)
+  -- for time-based evidence such as YouTube transcript segments.
+  start_time          REAL,
+  end_time            REAL,
   captured_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   confidence          REAL NOT NULL DEFAULT 1.0
                         CONSTRAINT confidence_range CHECK (confidence BETWEEN 0 AND 1),
@@ -197,6 +206,9 @@ CREATE TABLE IF NOT EXISTS public.claims (
   reasoning_summary TEXT,
   what_is_missing   TEXT,
   is_demo           BOOLEAN NOT NULL DEFAULT false,
+  -- Added in 0002_youtube_ingestion: provenance for claims extracted from
+  -- timestamped/attributable media (e.g. YouTube transcript segments).
+  origin_ref        JSONB,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

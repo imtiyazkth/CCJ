@@ -64,4 +64,12 @@ function detectLocaleFromHeader(header: string): SupportedLocale | null {
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Force Node.js runtime instead of Edge runtime. The Edge runtime's
+  // sandbox uses Node's `vm`/runInContext internally, which requires
+  // V8 code-generation-from-strings — this is blocked in some restricted
+  // environments (e.g. Next.js dev server running inside Termux on
+  // Android), causing "Code generation from strings disallowed for this
+  // context". This middleware does nothing Edge-specific, so nodejs
+  // runtime is safe here. Confirmed fixing this exact error on-device.
+  runtime: "nodejs",
 };

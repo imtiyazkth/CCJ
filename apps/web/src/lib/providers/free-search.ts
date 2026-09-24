@@ -66,7 +66,7 @@ export async function searchGDELT(q: string, n = 8): Promise<SearchResult[]> {
 // ── 3. The Guardian ───────────────────────────────────────────
 // Free key: https://open-platform.theguardian.com/access/ (instant approval)
 export async function searchGuardian(q: string, n = 5): Promise<SearchResult[]> {
-  const key = process.env["GUARDIAN_API_KEY"] ?? "test"; // "test" = demo mode, limited
+  const key = process.env["GUARDIAN_API_KEY"] ?? process.env["GUARDIAN_NEWS_KEY"] ?? "test"; // "test" = demo mode, limited
   try {
     const p = new URLSearchParams({ q, "show-fields":"trailText",
       "page-size":String(n), format:"json", "api-key":key });
@@ -162,7 +162,7 @@ export async function searchBrave(q: string, n = 6): Promise<SearchResult[]> {
 // ── 7. NewsAPI (100 req/day free) ────────────────────────────
 // Free key: https://newsapi.org
 export async function searchNewsAPI(q: string, n = 5): Promise<SearchResult[]> {
-  const key = process.env["NEWSAPI_KEY"];
+  const key = process.env["NEWSAPI_KEY"] ?? process.env["NEWS_API_KEY"];
   if (!key) return [];
   try {
     const p = new URLSearchParams({ q, pageSize:String(n), sortBy:"relevancy", language:"en" });
