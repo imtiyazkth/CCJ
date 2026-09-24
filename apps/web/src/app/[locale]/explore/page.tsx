@@ -2,6 +2,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { ShieldCheck } from "lucide-react";
 import explore from "@/data/explore.json";
 
 interface Entry {
@@ -30,8 +31,8 @@ function EntryCard({ entry }: { entry: Entry }) {
         <h3 className="ui-heading-sm text-sm text-gray-900">{entry.name}</h3>
         <div className="flex shrink-0 gap-1">
           {entry.official && (
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-              🏛 Official
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 inline-flex items-center gap-0.5">
+              <ShieldCheck className="h-3 w-3" aria-hidden="true" /> Official
             </span>
           )}
           {entry.tag && (
@@ -62,7 +63,7 @@ function CountryDirectoryView({ country }: { country: CountryDirectory }) {
           {sectionKeys.map((key) => (
             <button key={key} onClick={() => setActive(key)}
               data-active={active === key}
-              className="ui-tab ui-pressable shrink-0 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700">
+              className="ui-tab ui-pressable shrink-0 px-3 min-h-[44px] text-xs font-medium text-gray-500 hover:text-gray-700 flex items-center">
               {country.sections[key].label}
             </button>
           ))}
@@ -96,15 +97,15 @@ export default function ExplorePage({ params }: { params: Promise<{ locale: stri
         <div className="mx-auto max-w-7xl overflow-x-auto px-4 pb-2">
           <nav className="flex gap-1">
             <Link href={`/${locale}/profile`}
-              className="ui-tab ui-pressable px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700">
+              className="ui-tab ui-pressable px-3 min-h-[44px] text-sm font-medium text-gray-500 hover:text-gray-700 flex items-center">
               Profile
             </Link>
             <Link href={`/${locale}/explore`} data-active="true"
-              className="ui-tab ui-pressable px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700">
+              className="ui-tab ui-pressable px-3 min-h-[44px] text-sm font-medium text-gray-500 hover:text-gray-700 flex items-center">
               Explore
             </Link>
             <Link href={`/${locale}/dashboard`}
-              className="ui-tab ui-pressable px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700">
+              className="ui-tab ui-pressable px-3 min-h-[44px] text-sm font-medium text-gray-500 hover:text-gray-700 flex items-center">
               My Projects
             </Link>
           </nav>
@@ -129,7 +130,7 @@ export default function ExplorePage({ params }: { params: Promise<{ locale: stri
             {countryKeys.map((key) => (
               <button key={key} onClick={() => setActiveCountry(key)}
                 data-active={activeCountry === key}
-                className="ui-tab ui-pressable rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 border border-gray-200">
+                className="ui-tab ui-pressable rounded-lg px-3 min-h-[44px] text-sm font-medium text-gray-500 hover:text-gray-700 flex items-center border border-gray-200">
                 {COUNTRIES[key].flag} {COUNTRIES[key].label}
               </button>
             ))}

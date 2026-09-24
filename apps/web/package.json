@@ -20,7 +20,8 @@
     "drizzle-orm": "^0.38.3",
     "postgres": "^3.4.5",
     "@ccj/db": "workspace:*",
-    "youtube-transcript": "^1.2.1"
+    "youtube-transcript": "^1.2.1",
+    "lucide-react": "^0.383.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
