@@ -59,6 +59,66 @@ export async function searchYouTube(q: string, n = 6): Promise<SearchResult[]> {
   } catch { return []; }
 }
 
+// ── YouTube Data API v3: metadata for a SPECIFIC known video ──
+// Used by the YouTube ingestion pipeline (apps/web/src/lib/youtube/ingest.ts)
+// to fill in channel/publishedAt/thumbnail/duration once a video has
+// already been identified by URL — distinct from searchYouTube() above,
+// which discovers videos by keyword search.
+export interface YoutubeVideoMetadata {
+  title:           string | null;
+  channel:         string | null;
+  publishedAt:     string | null; // ISO-8601
+  thumbnailUrl:    string | null;
+  durationSeconds: number | null;
+}
+
+/** Parses an ISO-8601 duration (e.g. "PT4M13S") into seconds. */
+function parseIso8601Duration(iso: string): number | null {
+  const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return null;
+  const h = parseInt(m[1] ?? "0", 10);
+  const min = parseInt(m[2] ?? "0", 10);
+  const s = parseInt(m[3] ?? "0", 10);
+  return h * 3600 + min * 60 + s;
+}
+
+export async function fetchYoutubeVideoMetadata(videoId: string): Promise<YoutubeVideoMetadata> {
+  const empty: YoutubeVideoMetadata = {
+    title: null, channel: null, publishedAt: null, thumbnailUrl: null, durationSeconds: null,
+  };
+  const key = process.env["YOUTUBE_API_KEY"];
+  if (!key) return empty; // no key configured — never invent metadata
+
+  try {
+    const p = new URLSearchParams({ part: "snippet,contentDetails", id: videoId, key });
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?${p}`, {
+      headers: H, signal: T(5000),
+    });
+    if (!r.ok) return empty;
+    const d = await r.json() as {
+      items?: Array<{
+        snippet?: {
+          title?: string; channelTitle?: string; publishedAt?: string;
+          thumbnails?: { high?: { url?: string }; default?: { url?: string } };
+        };
+        contentDetails?: { duration?: string };
+      }>;
+    };
+    const item = d.items?.[0];
+    if (!item) return empty; // video not found/unlisted/deleted — never invent
+
+    return {
+      title:           item.snippet?.title ?? null,
+      channel:         item.snippet?.channelTitle ?? null,
+      publishedAt:     item.snippet?.publishedAt ?? null,
+      thumbnailUrl:    item.snippet?.thumbnails?.high?.url ?? item.snippet?.thumbnails?.default?.url ?? null,
+      durationSeconds: item.contentDetails?.duration ? parseIso8601Duration(item.contentDetails.duration) : null,
+    };
+  } catch {
+    return empty;
+  }
+}
+
 // ── Social profile search via Brave (site: operators) ────────
 // Uses existing BRAVE_SEARCH_KEY. Falls back to DDG site: search.
 async function searchSiteViaBrave(
@@ -115,6 +175,47 @@ async function searchSiteViaDDG(
         publishedAt: null, language: "en",
         platform: site.split(".")[0],
       })) as SearchResult[];
+  } catch { return []; }
+}
+
+// ── Bluesky (public, keyless AppView — no auth required) ─────
+// Docs: https://docs.bsky.app/docs/api/app-bsky-feed-search-posts
+// Uses the public read-only AppView host, not a user PDS — no
+// account/token needed for search.
+export async function searchBluesky(q: string, n = 6): Promise<SearchResult[]> {
+  try {
+    const p = new URLSearchParams({ q, limit: String(Math.min(n, 25)) });
+    const r = await fetch(
+      `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?${p}`,
+      { headers: H, signal: T(5000) }
+    );
+    if (!r.ok) return [];
+    const d = await r.json() as {
+      posts?: Array<{
+        uri: string;
+        author?: { handle?: string; displayName?: string };
+        record?: { text?: string; createdAt?: string };
+        indexedAt?: string;
+      }>;
+    };
+    return (d.posts ?? []).map(post => {
+      // uri looks like at://did:plc:xxx/app.bsky.feed.post/rkey —
+      // rebuild a real https bsky.app URL from the handle + rkey.
+      const rkey = post.uri.split("/").pop() ?? "";
+      const handle = post.author?.handle ?? "";
+      const url = handle && rkey
+        ? `https://bsky.app/profile/${handle}/post/${rkey}`
+        : "";
+      return {
+        url,
+        title: post.author?.displayName || handle || "Bluesky post",
+        snippet: (post.record?.text ?? "").slice(0, 300),
+        source: "Bluesky",
+        publishedAt: post.record?.createdAt ?? post.indexedAt ?? null,
+        language: "en",
+        platform: "bluesky",
+      } as SearchResult & { platform: string };
+    }).filter(r => r.url);
   } catch { return []; }
 }
 
@@ -176,7 +277,7 @@ export async function searchAllSocialMedia(
   query: string,
   n = 4
 ): Promise<SocialSearchResult[]> {
-  const [yt, twitter, instagram, linkedin, reddit, facebook, threads, github] =
+  const [yt, twitter, instagram, linkedin, reddit, facebook, threads, github, bluesky] =
     await Promise.allSettled([
       searchYouTube(query, n),
       searchSiteViaBrave(query, "x.com", "X (Twitter)", n),
@@ -186,6 +287,7 @@ export async function searchAllSocialMedia(
       searchSiteViaBrave(query, "facebook.com", "Facebook", n),
       searchSiteViaBrave(query, "threads.net", "Threads", n),
       searchGitHub(query, Math.min(n, 3)),
+      searchBluesky(query, n),
     ]);
 
   const all: SocialSearchResult[] = [];
@@ -198,6 +300,7 @@ export async function searchAllSocialMedia(
     { result: facebook,  platform: "facebook",  cred: 0.45 },
     { result: threads,   platform: "threads",   cred: 0.45 },
     { result: github,    platform: "github",    cred: 0.70 },
+    { result: bluesky,   platform: "bluesky",   cred: 0.45 },
   ];
   for (const { result, platform, cred } of sources) {
     if (result.status === "fulfilled") {

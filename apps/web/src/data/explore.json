@@ -1,0 +1,188 @@
+{
+  "_comment": "Curated links directory for the Explore page. Lives in the repo (GitHub) — no database needed. Edit this file directly, commit, and it ships on the next deploy. Every entry: name, url, description, official (true = government/primary source, false = third-party), tag (Free/Freemium/Paid).",
+
+  "countryDirectories": {
+    "india": {
+      "flag": "🇮🇳",
+      "label": "India",
+      "sections": {
+        "government": {
+          "label": "🏛 Government",
+          "entries": [
+            { "name": "India.gov.in", "url": "https://www.india.gov.in", "description": "National Portal of India — official gateway to government services and information.", "official": true },
+            { "name": "MyGov India", "url": "https://www.mygov.in", "description": "Citizen engagement platform for government schemes and initiatives.", "official": true },
+            { "name": "Digital India", "url": "https://www.digitalindia.gov.in", "description": "Digital India initiative — programs, e-services, and digital governance.", "official": true }
+          ]
+        },
+        "constitution": {
+          "label": "⚖ Constitution",
+          "entries": [
+            { "name": "Constitution of India (Legislative Dept.)", "url": "https://legislative.gov.in/constitution-of-india", "description": "Official full text of the Constitution of India, Ministry of Law and Justice.", "official": true }
+          ]
+        },
+        "laws": {
+          "label": "📜 Laws",
+          "entries": [
+            { "name": "India Code", "url": "https://www.indiacode.nic.in", "description": "Official repository of all Central and State Acts of India.", "official": true },
+            { "name": "e-Gazette of India", "url": "https://egazette.gov.in", "description": "Official Gazette of India — notifications, rules, and amendments as published.", "official": true }
+          ]
+        },
+        "courts": {
+          "label": "🏛 Courts",
+          "entries": [
+            { "name": "Supreme Court of India", "url": "https://www.sci.gov.in", "description": "Official Supreme Court website — judgments, cause lists, case status.", "official": true },
+            { "name": "e-Courts Services", "url": "https://ecourts.gov.in", "description": "National judicial services portal — case status and orders across Indian courts.", "official": true }
+          ]
+        },
+        "police": {
+          "label": "👮 Law Enforcement",
+          "entries": [
+            { "name": "National Crime Records Bureau", "url": "https://ncrb.gov.in", "description": "Official crime statistics and records, Ministry of Home Affairs.", "official": true },
+            { "name": "National Cyber Crime Reporting Portal", "url": "https://cybercrime.gov.in", "description": "Official portal to report cybercrime, including financial fraud.", "official": true }
+          ]
+        },
+        "ministries": {
+          "label": "🏢 Ministries",
+          "entries": [
+            { "name": "Ministries & Departments Directory", "url": "https://www.india.gov.in/my-government/ministries-departments", "description": "Official directory of all Government of India ministries and departments.", "official": true },
+            { "name": "Ministry of Home Affairs", "url": "https://www.mha.gov.in", "description": "Internal security, immigration, and law-and-order policy.", "official": true }
+          ]
+        },
+        "jobs": {
+          "label": "💼 Government Jobs",
+          "entries": [
+            { "name": "UPSC", "url": "https://upsc.gov.in", "description": "Union Public Service Commission — civil services and central recruitment.", "official": true },
+            { "name": "SSC", "url": "https://ssc.nic.in", "description": "Staff Selection Commission — recruitment for central government posts.", "official": true },
+            { "name": "National Career Service", "url": "https://www.ncs.gov.in", "description": "Government job portal covering public and private-sector openings.", "official": true }
+          ]
+        },
+        "publicData": {
+          "label": "📊 Public Data",
+          "entries": [
+            { "name": "data.gov.in", "url": "https://www.data.gov.in", "description": "Open Government Data platform — official datasets across sectors.", "official": true }
+          ]
+        },
+        "news": {
+          "label": "📰 Government News",
+          "entries": [
+            { "name": "Press Information Bureau", "url": "https://pib.gov.in", "description": "Official government press releases and announcements.", "official": true }
+          ]
+        },
+        "media": {
+          "label": "📺 Media",
+          "entries": [
+            { "name": "Prasar Bharati", "url": "https://prasarbharati.gov.in", "description": "India's public broadcaster — parent of Doordarshan and All India Radio.", "official": true },
+            { "name": "DD News", "url": "https://ddnews.gov.in", "description": "Official state broadcaster news channel.", "official": true }
+          ]
+        },
+        "parliament": {
+          "label": "🏛 Parliament",
+          "entries": [
+            { "name": "Sansad (Parliament of India)", "url": "https://sansad.in", "description": "Official portal of the Parliament of India — Lok Sabha and Rajya Sabha.", "official": true }
+          ]
+        },
+        "elections": {
+          "label": "🗳 Elections",
+          "entries": [
+            { "name": "Election Commission of India", "url": "https://eci.gov.in", "description": "Official body for conducting elections; results, rolls, and schedules.", "official": true },
+            { "name": "Voter Services Portal", "url": "https://voters.eci.gov.in", "description": "Voter registration, ID card, and roll search.", "official": true }
+          ]
+        },
+        "tax": {
+          "label": "💰 Tax",
+          "entries": [
+            { "name": "Income Tax Department", "url": "https://www.incometax.gov.in", "description": "Official e-filing and income tax information portal.", "official": true },
+            { "name": "GST Portal", "url": "https://www.gst.gov.in", "description": "Official Goods and Services Tax registration and filing portal.", "official": true }
+          ]
+        },
+        "immigration": {
+          "label": "🛂 Immigration",
+          "entries": [
+            { "name": "Passport Seva", "url": "https://www.passportindia.gov.in", "description": "Official passport application and services portal.", "official": true },
+            { "name": "Bureau of Immigration", "url": "https://boi.gov.in", "description": "Visa, immigration, and foreigner registration authority.", "official": true }
+          ]
+        },
+        "education": {
+          "label": "🎓 Education",
+          "entries": [
+            { "name": "Ministry of Education", "url": "https://www.education.gov.in", "description": "National education policy, schemes, and scholarships.", "official": true },
+            { "name": "UGC", "url": "https://www.ugc.gov.in", "description": "University Grants Commission — higher-education regulation.", "official": true }
+          ]
+        },
+        "health": {
+          "label": "🏥 Health",
+          "entries": [
+            { "name": "Ministry of Health & Family Welfare", "url": "https://www.mohfw.gov.in", "description": "National health policy, schemes, and public health updates.", "official": true },
+            { "name": "National Health Portal", "url": "https://www.nhp.gov.in", "description": "Health information, disease alerts, and hospital directories.", "official": true }
+          ]
+        },
+        "transport": {
+          "label": "🚗 Transport",
+          "entries": [
+            { "name": "Parivahan Sewa", "url": "https://parivahan.gov.in", "description": "Vehicle registration, driving licence, and RTO services.", "official": true }
+          ]
+        },
+        "emergency": {
+          "label": "🚨 Emergency Contacts",
+          "entries": [
+            { "name": "ERSS — Dial 112", "url": "https://dial112.gov.in", "description": "Emergency Response Support System — single number for police, fire, and ambulance.", "official": true }
+          ]
+        }
+      }
+    },
+    "qatar": {
+      "flag": "🇶🇦",
+      "label": "Qatar",
+      "sections": {
+        "government": {
+          "label": "🏛 Government",
+          "entries": [
+            { "name": "Hukoomi", "url": "https://hukoomi.gov.qa", "description": "Qatar's official e-government portal — services, ministries, and public information.", "official": true }
+          ]
+        }
+      }
+    }
+  },
+
+  "ai-tools": {
+    "label": "AI Tools",
+    "entries": [
+      { "name": "Claude", "url": "https://claude.ai", "description": "Anthropic's AI assistant for writing, research, and coding.", "official": true, "tag": "Freemium" },
+      { "name": "ChatGPT", "url": "https://chat.openai.com", "description": "OpenAI's conversational AI assistant.", "official": true, "tag": "Freemium" },
+      { "name": "Perplexity", "url": "https://www.perplexity.ai", "description": "AI-powered answer engine with cited sources.", "official": true, "tag": "Freemium" }
+    ]
+  },
+
+  "video-tools": {
+    "label": "Video",
+    "entries": [
+      { "name": "CapCut", "url": "https://www.capcut.com", "description": "Free video editor for mobile and desktop, popular for Shorts/Reels.", "official": true, "tag": "Freemium" },
+      { "name": "DaVinci Resolve", "url": "https://www.blackmagicdesign.com/products/davinciresolve", "description": "Professional-grade video editing and color grading, free tier available.", "official": true, "tag": "Freemium" }
+    ]
+  },
+
+  "image-tools": {
+    "label": "Image",
+    "entries": [
+      { "name": "remove.bg", "url": "https://www.remove.bg", "description": "Instant background remover.", "official": true, "tag": "Freemium" },
+      { "name": "Photopea", "url": "https://www.photopea.com", "description": "Free browser-based Photoshop-like image editor.", "official": true, "tag": "Free" }
+    ]
+  },
+
+  "website-builders": {
+    "label": "Website & Hosting",
+    "entries": [
+      { "name": "Vercel", "url": "https://vercel.com", "description": "Deploy and host web apps, generous free tier.", "official": true, "tag": "Freemium" },
+      { "name": "GitHub Pages", "url": "https://pages.github.com", "description": "Free static site hosting directly from a GitHub repo.", "official": true, "tag": "Free" },
+      { "name": "Netlify", "url": "https://www.netlify.com", "description": "Deploy and host web apps with CI/CD, free tier available.", "official": true, "tag": "Freemium" }
+    ]
+  },
+
+  "my-projects": {
+    "label": "My Projects",
+    "entries": [
+      { "name": "Teleprompter", "url": "https://imtiyazkth.github.io/Teleprompter/", "description": "Professional browser-based teleprompter for recording videos and speeches.", "official": true, "tag": "My Project" },
+      { "name": "QRaksha", "url": "https://qraksha-india.web.app", "description": "Privacy-first QR code scam detection web app for Indian users.", "official": true, "tag": "My Project" }
+    ]
+  }
+}

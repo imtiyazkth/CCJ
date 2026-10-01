@@ -125,11 +125,37 @@ export const sources = pgTable("sources", {
   rawArtifactId:       text("raw_artifact_id"),
   extractedArtifactId: text("extracted_artifact_id"),
   isDemo:              boolean("is_demo").notNull().default(false),
+  // ── YouTube-specific metadata (nullable; only set when sourceType/platform is YouTube) ──
+  // Kept as JSONB rather than a parallel table: one video = one source row,
+  // and this data is only ever read alongside its source, never queried
+  // independently at scale.
+  youtubeMeta:         jsonb("youtube_meta"),
   createdAt:           timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   runIdIdx:   index("sources_run_id_idx").on(t.researchRunId),
   hashIdx:    index("sources_hash_idx").on(t.contentHash),
+  videoIdIdx: index("sources_youtube_video_id_idx").on(sql`((${t.youtubeMeta}->>'videoId'))`),
 }));
+
+/**
+ * Shape stored in sources.youtubeMeta, documented for consumers.
+ * Not enforced at the DB layer (JSONB), validated at the application layer.
+ */
+export interface YoutubeSourceMeta {
+  videoId: string;
+  canonicalUrl: string;
+  videoType: "video" | "short";
+  channel: string | null;
+  publishedAt: string | null; // ISO-8601, null if unknown — never invented
+  durationSeconds: number | null;
+  thumbnailUrl: string | null;
+  transcriptStatus:
+    | "available" | "disabled" | "not_available"
+    | "video_unavailable" | "too_many_requests"
+    | "language_unavailable" | "error" | "not_attempted";
+  transcriptLanguage: string | null;
+  transcriptIsGenerated: boolean | null;
+}
 
 // ── Evidence ─────────────────────────────────────────────────
 
@@ -140,6 +166,9 @@ export const evidence = pgTable("evidence", {
   section:            text("section"),
   quote:              text("quote").notNull(),
   coordinates:        jsonb("coordinates"),
+  // ── Timestamp fields for time-based evidence (YouTube transcript segments, etc.) ──
+  startTime:          real("start_time"),
+  endTime:            real("end_time"),
   capturedAt:         timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
   confidence:         real("confidence").notNull().default(1.0),
   language:           varchar("language", { length: 10 }).notNull().default("en"),
@@ -161,12 +190,23 @@ export const claims = pgTable("claims", {
   confidence:        real("confidence").notNull().default(0.0),
   reasoningSummary:  text("reasoning_summary"),
   whatIsMissing:     text("what_is_missing"),
+  // ── Provenance for claims extracted from timestamped media (YouTube, etc.) ──
+  originRef:         jsonb("origin_ref"),
   isDemo:            boolean("is_demo").notNull().default(false),
   createdAt:         timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:         timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   projectIdIdx: index("claims_project_id_idx").on(t.projectId),
 }));
+
+/** Shape stored in claims.originRef when a claim originates from a specific
+ *  timestamped or attributable passage (e.g. a YouTube transcript segment). */
+export interface ClaimOriginRef {
+  sourceId: string;
+  evidenceId: string | null;
+  timestamp: number | null;
+  speakerOrAttribution: string | null;
+}
 
 // ── Claim ↔ Evidence ─────────────────────────────────────────
 

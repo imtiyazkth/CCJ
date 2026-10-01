@@ -49,8 +49,8 @@ Confidence 0.0-1.0. Always return valid JSON.
     const start = Date.now();
 
     const claimsToCheck = [
-      ...data.social.viralClaims.map(c => ({ claim: c.claim, source: c.source, url: c.url })),
-      ...data.news.majorNewsLines.map(h => ({ claim: h, source: "News", url: "" })),
+      ...(data.social.viralClaims ?? []).map(c => ({ claim: c.claim, source: c.source, url: c.url })),
+      ...(data.news.majorNewsLines ?? []).map(h => ({ claim: h, source: "News", url: "" })),
     ].slice(0, 15);
 
     if (claimsToCheck.length === 0) {
@@ -77,9 +77,9 @@ CLAIMS TO VERIFY:
 ${claimsToCheck.map((c, i) => `[${i+1}] "${c.claim}" (Source: ${c.source})`).join("\n")}
 
 VERIFIED NEWS/GOVT EVIDENCE:
-Key Facts: ${data.news.keyFacts.join("; ")}
-Official Statements: ${data.news.officialStatements.map(s => s.statement).join("; ")}
-Timeline Events: ${data.news.timeline.map(t => `${t.date}: ${t.event}`).join("; ")}
+Key Facts: ${(data.news.keyFacts ?? []).join("; ")}
+Official Statements: ${(data.news.officialStatements ?? []).map(s => s.statement).join("; ")}
+Timeline Events: ${(data.news.timeline ?? []).map(t => `${t.date}: ${t.event}`).join("; ")}
 
 SOCIAL MEDIA CONTEXT:
 Sentiment: ${data.social.sentiment}
@@ -107,7 +107,25 @@ Return JSON:
     let result: FactCheckResult;
 
     try {
-      result = JSON.parse(raw.replace(/```json\n?|```\n?/g, "").trim()) as FactCheckResult;
+      const parsed = JSON.parse(raw.replace(/```json\n?|```\n?/g, "").trim()) as Partial<FactCheckResult>;
+      // Defensive normalization: even when the AI returns syntactically
+      // valid JSON, it may omit expected array fields entirely. Never let
+      // a missing field crash downstream code that assumes arrays exist.
+      result = {
+        claims:             (Array.isArray(parsed.claims) ? parsed.claims : []).map(c => ({
+          claim:                 c.claim ?? "",
+          status:                c.status ?? "insufficient_data",
+          confidence:            typeof c.confidence === "number" ? c.confidence : 0,
+          supportingEvidence:    Array.isArray(c.supportingEvidence) ? c.supportingEvidence : [],
+          contradictingEvidence: Array.isArray(c.contradictingEvidence) ? c.contradictingEvidence : [],
+          verdict:               c.verdict ?? "",
+          sourceUrls:            Array.isArray(c.sourceUrls) ? c.sourceUrls : [],
+        })),
+        overallReliability: parsed.overallReliability ?? "low",
+        contradictions:     Array.isArray(parsed.contradictions) ? parsed.contradictions : [],
+        missingEvidence:    Array.isArray(parsed.missingEvidence) ? parsed.missingEvidence : [],
+        summary:            parsed.summary ?? "Fact-check completed with an incomplete response.",
+      };
     } catch {
       result = {
         claims:             claimsToCheck.map(c => ({
@@ -133,7 +151,7 @@ Return JSON:
       reasoning:  `Checked ${result.claims.length} claims: ${verifiedCount} verified, ` +
                   `${result.claims.filter(c => c.status === "disputed").length} disputed`,
       duration:   Date.now() - start,
-      model:      process.env["GROQ_API_KEY"] ? "groq/llama-3.3-70b" : "gemini-1.5-flash",
+      model:      this.lastModelUsed,
     };
   }
 }

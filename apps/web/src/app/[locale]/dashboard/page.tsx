@@ -35,18 +35,37 @@ export default function DashboardPage({ params }: { params: Promise<{ locale: st
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
+      <header className="ui-material-toolbar border-b border-gray-200">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white text-sm font-bold">C</div>
-            <span className="font-semibold text-gray-900">{t("app.name")}</span>
+            <span className="ui-heading-sm text-gray-900">{t("app.name")}</span>
           </div>
           <div className="flex items-center gap-4">
             <span className="hidden text-sm text-gray-500 sm:block">{user?.email}</span>
-            <button onClick={() => signOut()} className="text-sm text-gray-500 hover:text-gray-800">
+            <button onClick={() => signOut()} className="ui-pressable text-sm text-gray-500 hover:text-gray-800">
               {t("auth.signOut")}
             </button>
           </div>
+        </div>
+        {/* §7 Wayfinding: Profile / Explore / My Projects — same three
+            destinations everywhere, so the person always knows where
+            they can go from here. */}
+        <div className="mx-auto max-w-7xl overflow-x-auto px-4 pb-2">
+          <nav className="flex gap-1">
+            <Link href={`/${locale}/profile`}
+              className="ui-tab ui-pressable px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700">
+              Profile
+            </Link>
+            <Link href={`/${locale}/explore`}
+              className="ui-tab ui-pressable px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700">
+              Explore
+            </Link>
+            <Link href={`/${locale}/dashboard`} data-active="true"
+              className="ui-tab ui-pressable px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700">
+              My Projects
+            </Link>
+          </nav>
         </div>
       </header>
 

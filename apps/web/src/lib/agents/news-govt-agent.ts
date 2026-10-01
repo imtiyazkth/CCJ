@@ -77,7 +77,19 @@ Return JSON:
     let analysis: NewsGovtAnalysis;
 
     try {
-      analysis = JSON.parse(raw.replace(/```json\n?|```\n?/g, "").trim()) as NewsGovtAnalysis;
+      const parsed = JSON.parse(raw.replace(/```json\n?|```\n?/g, "").trim()) as Partial<NewsGovtAnalysis>;
+      // Defensive normalization: syntactically valid JSON can still omit
+      // or mistype expected array fields (e.g. a string instead of an
+      // array). Never let that crash downstream code (e.g.
+      // FactCheckerAgent) that assumes these are always arrays.
+      analysis = {
+        officialStatements: Array.isArray(parsed.officialStatements) ? parsed.officialStatements : [],
+        govtDomainHits:     Array.isArray(parsed.govtDomainHits) ? parsed.govtDomainHits : [],
+        majorNewsLines:     Array.isArray(parsed.majorNewsLines) ? parsed.majorNewsLines : [],
+        timeline:           Array.isArray(parsed.timeline) ? parsed.timeline : [],
+        keyFacts:           Array.isArray(parsed.keyFacts) ? parsed.keyFacts : [],
+        summary:            typeof parsed.summary === "string" ? parsed.summary : `Analysed ${newsItems.length} news sources and ${govItems.length} government sources.`,
+      };
     } catch {
       analysis = {
         officialStatements: [],
@@ -96,7 +108,7 @@ Return JSON:
       sources:    [...govItems, ...newsItems].map(i => i.url).slice(0, 10),
       reasoning:  `Processed ${newsItems.length} news + ${govItems.length} govt sources`,
       duration:   Date.now() - start,
-      model:      process.env["GROQ_API_KEY"] ? "groq/llama-3.3-70b" : "gemini-1.5-flash",
+      model:      this.lastModelUsed,
     };
   }
 }
