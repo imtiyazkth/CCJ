@@ -4,6 +4,7 @@ import { SUPPORTED_LOCALES, RTL_LOCALES } from "@ccj/types";
 import type { SupportedLocale } from "@ccj/types";
 import { AuthProvider } from "../../lib/auth-context";
 import { I18nProvider } from "../../lib/i18n";
+import { QuickAskOrb } from "../../components/QuickAskOrb";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -52,7 +53,12 @@ export default async function LocaleLayout({ children, params }: Props) {
     <html lang={locale} dir={dir}>
       <body className="bg-gray-50 text-gray-900 antialiased">
         <I18nProvider locale={typedLocale} messages={messages}>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            {/* Global, every page: dashboard, explore, profile, project
+                workspace — one floating entry point into Quick Ask. */}
+            <QuickAskOrb />
+          </AuthProvider>
         </I18nProvider>
       </body>
     </html>
