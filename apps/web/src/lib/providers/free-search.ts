@@ -18,28 +18,42 @@ const T = (ms: number) => AbortSignal.timeout(ms);
 
 const H = { "User-Agent": "CCJ-Research/1.0", "Accept": "application/json" };
 
+// SECURITY (CodeQL: critical SSRF, js/request-forgery) — any caller-supplied
+// "lang"/language string that reaches a URL template must never be used
+// raw: an attacker could pass something like "evil.com" or inject control
+// characters to redirect the request to an arbitrary host. Every language
+// code is validated against this fixed whitelist before it's allowed near
+// a URL. Mirrors @ccj/types SUPPORTED_LOCALES, kept local so this provider
+// has no cross-package dependency.
+const SAFE_WIKI_LANGS = new Set(["en", "hi", "ar"]);
+function safeLang(lang: string): string {
+  return SAFE_WIKI_LANGS.has(lang) ? lang : "en";
+}
+
 // ── 1. Wikipedia ──────────────────────────────────────────────
 export async function searchWikipedia(q: string, lang = "en", n = 6): Promise<SearchResult[]> {
   try {
+    const safe = safeLang(lang);
     const p = new URLSearchParams({ action:"query", list:"search", srsearch:q,
       srlimit:String(n), format:"json", origin:"*" });
-    const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?${p}`, { headers:H, signal:T(5000) });
+    const r = await fetch(`https://${safe}.wikipedia.org/w/api.php?${p}`, { headers:H, signal:T(5000) });
     if (!r.ok) return [];
     const d = await r.json() as { query?:{ search?:Array<{title:string;snippet:string}> } };
     return (d.query?.search ?? []).map(i => ({
-      url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(i.title.replace(/ /g,"_"))}`,
+      url: `https://${safe}.wikipedia.org/wiki/${encodeURIComponent(i.title.replace(/ /g,"_"))}`,
       title: i.title, snippet: i.snippet.replace(/<[^>]+>/g,""),
-      source:"Wikipedia", publishedAt:null, language:lang,
+      source:"Wikipedia", publishedAt:null, language:safe,
     }));
   } catch { return []; }
 }
 
 export async function getWikipediaArticle(title: string, lang = "en"): Promise<string> {
   try {
+    const safe = safeLang(lang);
     const p = new URLSearchParams({ action:"query", titles:title,
       prop:"extracts", exintro:"1", explaintext:"1", exchars:"3000",
       format:"json", origin:"*" });
-    const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?${p}`, { headers:H, signal:T(4000) });
+    const r = await fetch(`https://${safe}.wikipedia.org/w/api.php?${p}`, { headers:H, signal:T(4000) });
     if (!r.ok) return "";
     const d = await r.json() as { query?:{ pages?:Record<string,{ extract?:string }> } };
     const page = Object.values(d.query?.pages ?? {})[0];
