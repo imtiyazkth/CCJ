@@ -5,6 +5,7 @@ import { runAllSources } from "@/lib/providers/free-search";
 interface QuickAskResult {
   answer: string;
   citedIndices: number[];
+  fromGeneralKnowledge: boolean;
 }
 
 // Minimal, self-contained Groq call — deliberately NOT importing from
@@ -61,11 +62,16 @@ export async function POST(req: NextRequest) {
       .join("\n");
 
     const raw = await callGroqForAnswer(
-      "You answer a question in 2-4 short sentences using ONLY the numbered sources given. " +
-      "Every claim must be attributable to a source. Return ONLY JSON, no other text: " +
-      '{"answer": "...", "citedIndices": [0, 2]} — citedIndices lists which source numbers you actually used. ' +
-      "If the sources don't answer the question, say so plainly in the answer field.",
-      `Question: ${body.question.trim()}\n\nSources:\n${sourceList}`
+      "You answer the user's question directly and helpfully in 2-4 short sentences. " +
+      "First check the numbered sources below — if any are genuinely relevant, base your " +
+      "answer on them and cite which ones in citedIndices. If none of the sources are " +
+      "relevant to the question (this happens often — web search can return unrelated " +
+      "results for niche or local terms), ignore them and answer from your own general " +
+      "knowledge instead, setting fromGeneralKnowledge to true and citedIndices to []. " +
+      "Only say you don't know if you genuinely have no relevant knowledge at all — don't " +
+      "refuse just because the search results happened to be irrelevant. Return ONLY JSON, " +
+      'no other text: {"answer": "...", "citedIndices": [0, 2], "fromGeneralKnowledge": false}',
+      `Question: ${body.question.trim()}\n\nSources found by web search (may or may not be relevant):\n${sourceList}`
     );
 
     let parsed: Partial<QuickAskResult> | null = null;
@@ -90,9 +96,15 @@ export async function POST(req: NextRequest) {
       .filter((s): s is typeof topSources[number] => Boolean(s))
       .map((s) => ({ title: s.title, url: s.url, source: s.source }));
 
+    // When the model used its own knowledge instead of the search results,
+    // don't attach the (irrelevant) sources it was explicitly told to
+    // ignore — showing them next to a general-knowledge answer would
+    // falsely imply they back it up.
+    const fromGeneralKnowledge = parsed.fromGeneralKnowledge === true;
     return ok({
       answer: parsed.answer,
-      sources: cited.length > 0 ? cited : topSources.slice(0, 3).map((s) => ({ title: s.title, url: s.url, source: s.source })),
+      sources: fromGeneralKnowledge ? [] : (cited.length > 0 ? cited : topSources.slice(0, 3).map((s) => ({ title: s.title, url: s.url, source: s.source }))),
+      fromGeneralKnowledge,
     });
   } catch (r) {
     if (r instanceof Response) return r;
